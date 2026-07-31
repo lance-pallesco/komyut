@@ -1,0 +1,183 @@
+// Prisma schema for KOMYUT MVP
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String   @id @default(uuid())
+  email                String   @unique
+  username             String   @unique
+  name                 String
+  avatarUrl            String?
+  reputationPoints     Int      @default(0)
+  verifiedAnswersCount Int      @default(0)
+  role                 String   @default("user") // "user", "moderator", "admin"
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  posts         Post[]
+  answers       Answer[]
+  votes         Vote[]
+  bookmarks     Bookmark[]
+  notifications Notification[]
+  reports       Report[]
+
+  @@map("users")
+}
+
+model Post {
+  id             String   @id @default(uuid())
+  authorId       String
+  author         User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  origin         String
+  destination    String
+  region         String   @default("Metro Manila")
+  status         String   @default("unanswered") // "unanswered", "answered", "verified", "pinned"
+  upvoteCount    Int      @default(0)
+  answerCount    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  answers       Answer[]
+  votes         Vote[]
+  bookmarks     Bookmark[]
+  tags          PostTag[]
+  aiSuggestions AISuggestion[]
+  reports       Report[]
+  embedding     Embedding?
+
+  @@map("posts")
+}
+
+model Answer {
+  id          String   @id @default(uuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Answer?  @relation("AnswerReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Answer[] @relation("AnswerReplies")
+  body        String
+  isVerified  Boolean  @default(false)
+  upvoteCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  votes   Vote[]
+  reports Report[]
+
+  @@map("answers")
+}
+
+model Vote {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  answerId  String?
+  answer    Answer?  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  direction String   // "up" | "down"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, postId])
+  @@unique([userId, answerId])
+  @@map("votes")
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@map("bookmarks")
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique // e.g. "Jeepney", "Bus", "MRT", "LRT-1", "LRT-2", "Tricycle", "Walk"
+  category  String    @default("transport_mode")
+  createdAt DateTime  @default(now())
+
+  posts     PostTag[]
+
+  @@map("tags")
+}
+
+model PostTag {
+  id     String @id @default(uuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tagId])
+  @@map("post_tags")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "answer", "vote", "verification", "system"
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model AISuggestion {
+  id              String   @id @default(uuid())
+  postId          String
+  post            Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  suggestedRoute  String
+  sourceAnswerIds String[]
+  confidenceScore Float    @default(0.0)
+  createdAt       DateTime @default(now())
+
+  @@map("ai_suggestions")
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  postId     String?
+  post       Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  answerId   String?
+  answer     Answer?  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  reason     String
+  status     String   @default("pending") // "pending", "reviewed", "dismissed", "actioned"
+  createdAt  DateTime @default(now())
+
+  @@map("reports")
+}
+
+model Embedding {
+  id         String   @id @default(uuid())
+  postId     String   @unique
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  vectorData String   // JSON string representation of embedding vectors
+  model      String   @default("text-embedding-3-small")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("embeddings")
+}

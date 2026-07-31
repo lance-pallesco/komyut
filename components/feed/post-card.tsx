@@ -431,7 +431,7 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
             </div>
           </div>
 
-          <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground hover:text-primary transition-colors cursor-pointer leading-snug break-words">
+          <h2 className="text-lg sm:text-lg font-black text-[#3D3C3A] dark:text-[#E2E2E2] tracking-tight transition-colors cursor-pointer leading-snug break-words">
             {post.title}
           </h2>
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { inter, plusJakartaSans } from "./fonts";
+import { manrope, inter } from "./fonts";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${plusJakartaSans.variable} font-sans h-full antialiased`}
+      className={`${manrope.variable} ${inter.variable} font-sans h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground pb-16 md:pb-0">

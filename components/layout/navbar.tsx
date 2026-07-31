@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { Compass, Search, PlusCircle, Menu } from "lucide-react";
+import { Search, PlusCircle, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { LeftSidebar } from "./left-sidebar";
 
@@ -35,7 +36,13 @@ export function Navbar({ searchQuery, onSearchChange }: NavbarProps) {
             <SheetContent side="left" className="w-72 p-0">
               <SheetHeader className="p-4 border-b border-border text-left">
                 <SheetTitle className="flex items-center gap-2 text-primary font-black">
-                  <Compass className="w-5 h-5" />
+                  <Image
+                    src="/logo.png"
+                    alt="KOMYUT Logo"
+                    width={24}
+                    height={24}
+                    className="h-6 w-6 object-contain"
+                  />
                   KOMYUT
                 </SheetTitle>
               </SheetHeader>
@@ -49,9 +56,13 @@ export function Navbar({ searchQuery, onSearchChange }: NavbarProps) {
             href="/"
             className="flex items-center gap-2 group transition-opacity hover:opacity-90"
           >
-            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-sm group-hover:scale-105 transition-transform">
-              <Compass className="w-5 h-5 stroke-[2.5]" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="KOMYUT Logo"
+              width={36}
+              height={36}
+              className="h-9 w-9 object-contain group-hover:scale-105 transition-transform"
+            />
             <div className="flex flex-col">
               <span className="font-extrabold text-lg tracking-tight text-foreground leading-none">
                 KOMYUT
