@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useSession, signOut } from "next-auth/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { Search, PlusCircle, Menu } from "lucide-react";
+import { Search, PlusCircle, Menu, LogOut, User } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { LeftSidebar } from "./left-sidebar";
 
@@ -15,6 +16,8 @@ interface NavbarProps {
 }
 
 export function Navbar({ searchQuery, onSearchChange }: NavbarProps) {
+  const { data: session, status } = useSession();
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3 sm:gap-6">
@@ -88,13 +91,47 @@ export function Navbar({ searchQuery, onSearchChange }: NavbarProps) {
           </div>
         </div>
 
-        {/* Header Right Action Area: Theme Toggle & Ask Question Button */}
+        {/* Header Right Action Area */}
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
+
           <Button size="sm" className="hidden sm:inline-flex gap-1.5 font-semibold rounded-full shadow-sm">
             <PlusCircle className="w-4 h-4" />
             <span>Magtanong</span>
           </Button>
+
+          {status === "authenticated" && session?.user ? (
+            <div className="flex items-center gap-2 border-l border-border pl-2 ml-1">
+              <div className="hidden md:flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-emerald-500/20 overflow-hidden border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-600">
+                  {session.user.image ? (
+                    <img src={session.user.image} alt={session.user.name || "User"} className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{(session.user.name || "C")[0]}</span>
+                  )}
+                </div>
+                <span className="text-xs font-bold text-foreground max-w-[100px] truncate">
+                  {session.user.name || (session.user as any).username}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                title="Log Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <Link href="/">
+              <Button variant="outline" size="sm" className="rounded-full text-xs font-bold gap-1.5">
+                <User className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </header>

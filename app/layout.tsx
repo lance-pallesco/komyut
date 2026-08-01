@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { manrope, inter } from "./fonts";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/components/providers/auth-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { BRAND_TAGLINE } from "@/lib/constants";
@@ -33,18 +34,20 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground pb-16 md:pb-0">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <TooltipProvider>
-            {children}
-            <MobileBottomNav />
-            <Toaster position="bottom-right" richColors />
-          </TooltipProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <TooltipProvider>
+              {children}
+              <MobileBottomNav />
+              <Toaster position="bottom-right" richColors />
+            </TooltipProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

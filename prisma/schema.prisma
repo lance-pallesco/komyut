@@ -15,6 +15,7 @@ model User {
   username             String   @unique
   name                 String
   avatarUrl            String?
+  passwordHash         String?
   reputationPoints     Int      @default(0)
   verifiedAnswersCount Int      @default(0)
   role                 String   @default("user") // "user", "moderator", "admin"

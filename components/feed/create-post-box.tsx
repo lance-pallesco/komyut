@@ -50,7 +50,7 @@ export function CreatePostBox() {
           className="h-8 px-4 bg-primary text-primary-foreground font-semibold rounded-full gap-1.5 text-xs shadow-xs hover:bg-primary/90"
         >
           <Send className="w-3.5 h-3.5" />
-          <span>I-post</span>
+          <span>Post</span>
         </Button>
       </div>
     </div>
