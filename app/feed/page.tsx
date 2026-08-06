@@ -1,19 +1,8 @@
-"use client";
+import { getFeedPosts } from "@/lib/db-posts";
+import { FeedClientContainer } from "@/components/feed/feed-client-container";
 
-import { Navbar } from "@/components/layout/navbar";
-import { FeedLayout } from "@/components/layout/feed-layout";
-import { useFeedFilter } from "@/hooks/use-feed-filter";
+export default async function FeedPage() {
+  const initialPosts = await getFeedPosts();
 
-export default function FeedPage() {
-  const filterHook = useFeedFilter();
-
-  return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <Navbar
-        searchQuery={filterHook.searchQuery}
-        onSearchChange={filterHook.handleSearchChange}
-      />
-      <FeedLayout filterHook={filterHook} />
-    </div>
-  );
+  return <FeedClientContainer initialPosts={initialPosts} />;
 }

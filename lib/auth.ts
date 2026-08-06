@@ -99,8 +99,8 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.username = (user as any).username;
         token.role = (user as any).role || "user";
-      } else if (token.email) {
-        // Hydrate latest user info from DB if available
+      } else if (token.email && !token.username) {
+        // Hydrate from DB only once if username is missing from token
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
         });

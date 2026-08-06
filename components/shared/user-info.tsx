@@ -1,6 +1,9 @@
+"use client";
+
 import type { User } from "@/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CheckCircle2 } from "lucide-react";
+import { useRelativeTime } from "@/hooks/use-relative-time";
 
 interface UserInfoProps {
   author: User;
@@ -9,6 +12,7 @@ interface UserInfoProps {
 }
 
 export function UserInfo({ author, createdAt, isVerified }: UserInfoProps) {
+  const formattedTime = useRelativeTime(createdAt);
   const initials = author.name
     .split(" ")
     .map((n) => n[0])
@@ -42,7 +46,7 @@ export function UserInfo({ author, createdAt, isVerified }: UserInfoProps) {
           )}
         </div>
         <span className="text-[11px] text-muted-foreground/80 font-normal leading-tight mt-0.5">
-          {createdAt}
+          {formattedTime}
         </span>
       </div>
     </div>
