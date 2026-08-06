@@ -34,7 +34,6 @@ export async function registerUserAction(input: RegisterInput) {
       return { success: false, error: "Username must be at least 3 alphanumeric characters." };
     }
 
-    // Check if email or username already exists
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
@@ -53,13 +52,10 @@ export async function registerUserAction(input: RegisterInput) {
       }
     }
 
-    // Hash password with bcrypt
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Generate avatar URL using Dicebear
     const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`;
 
-    // Create user in PostgreSQL database
     const newUser = await prisma.user.create({
       data: {
         name: name.trim(),

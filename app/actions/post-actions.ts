@@ -23,7 +23,6 @@ export async function createPostAction(input: CreatePostInput) {
     if (session?.user?.id) {
       authorId = session.user.id;
     } else {
-      // Find default seed user for guest posting / demo fallback
       const defaultUser = await prisma.user.findFirst();
       if (!defaultUser) {
         return { success: false, error: "Please log in to post a question." };
@@ -46,7 +45,6 @@ export async function createPostAction(input: CreatePostInput) {
       return { success: false, error: "Please specify a destination location (To)." };
     }
 
-    // Create post in PostgreSQL database
     const post = await prisma.post.create({
       data: {
         authorId,
@@ -61,7 +59,6 @@ export async function createPostAction(input: CreatePostInput) {
       },
     });
 
-    // Attach transport mode tags if provided
     if (selectedTagNames.length > 0) {
       const tags = await prisma.tag.findMany({
         where: { name: { in: selectedTagNames } },
@@ -77,7 +74,6 @@ export async function createPostAction(input: CreatePostInput) {
       }
     }
 
-    // Revalidate feed cache so newly created post appears instantly!
     revalidatePath("/feed");
     revalidatePath("/");
 
@@ -85,5 +81,36 @@ export async function createPostAction(input: CreatePostInput) {
   } catch (error: any) {
     console.error("Error in createPostAction:", error);
     return { success: false, error: error?.message || "Failed to create post. Please try again." };
+  }
+}
+
+export async function deletePostAction(postId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
+    const existingPost = await prisma.post.findUnique({
+      where: { id: postId },
+    });
+
+    if (!existingPost) {
+      return { success: false, error: "Post not found." };
+    }
+
+    if (userId && existingPost.authorId !== userId) {
+      return { success: false, error: "Unauthorized to delete this post." };
+    }
+
+    await prisma.post.delete({
+      where: { id: postId },
+    });
+
+    revalidatePath("/feed");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in deletePostAction:", error);
+    return { success: false, error: error?.message || "Failed to delete post." };
   }
 }

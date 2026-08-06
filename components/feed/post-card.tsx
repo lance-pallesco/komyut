@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import type { Post, Comment } from "@/types";
 import { formatRelativeTime } from "@/lib/formatters";
@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   MessageCircle,
   Share2,
@@ -28,16 +30,23 @@ import {
   ChevronUp,
   Send,
   Trash2,
+  LogIn,
+  Pencil,
+  MessageSquareOff,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { createAnswerAction, deleteAnswerAction } from "@/app/actions/answer-actions";
+import { deletePostAction } from "@/app/actions/post-actions";
+import { toggleAnswerVoteAction } from "@/app/actions/vote-actions";
 import { ConfirmModal } from "@/components/shared/confirm-modal";
+import { LikeButton } from "@/components/shared/like-button";
 
 interface PostCardProps {
   post: Post;
-  onVote: (postId: string, direction: "up" | "down") => void;
+  onVote: (postId: string) => void;
   onBookmark: (postId: string) => void;
 }
 
@@ -52,30 +61,42 @@ interface CommentItemProps {
   setReplyingToId: (id: string | null) => void;
   replyText: string;
   setReplyText: (text: string) => void;
-  onReplySubmit: (parentId: string, authorName: string) => void;
+  onReplySubmit: (parentId: string, authorName?: string) => void;
 }
 
-function formatCommentBody(body: string) {
-  const parts = body.split(/(@[A-Za-z0-9_]+(?:\s+[A-Za-z0-9_]+)?)/g);
-  if (parts.length <= 1) return body;
+function formatCommentBody(comment: Comment) {
+  const body = comment.body || "";
 
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("@")) {
-          return (
-            <span
-              key={i}
-              className="font-semibold text-primary hover:underline cursor-pointer"
-            >
-              {part}
+  if (comment.parentAuthorName) {
+    const cleanBody = body.replace(new RegExp(`^@${comment.parentAuthorName}\\s*`, "i"), "").trim();
+    return (
+      <>
+        <span className="font-semibold text-primary hover:underline cursor-pointer mr-1">
+          @{comment.parentAuthorName}
+        </span>
+        {cleanBody || body}
+      </>
+    );
+  }
+
+  if (body.startsWith("@")) {
+    const spaceIndex = body.indexOf(" ");
+    if (spaceIndex !== -1) {
+      const parts = body.split(/^(@[^\n\r]+?)(?=\s+(?:[a-z0-9\W]|sabay|thanks|thank|salamat|sakay|baba|tawid|mabilis|okay|ok|goods|hindi|oo|pa|na|ba|toy|po|din|rin|yung|ako|ikaw|mo|ko|to|ito|ano|saan|paano|mga|sa|ng|pala|kasi|dapat)|\s*$)/iu);
+      if (parts.length > 1) {
+        return (
+          <>
+            <span className="font-semibold text-primary hover:underline cursor-pointer">
+              {parts[1]}
             </span>
-          );
-        }
-        return part;
-      })}
-    </>
-  );
+            {parts[2] || ""}
+          </>
+        );
+      }
+    }
+  }
+
+  return body;
 }
 
 function CommentItem({
@@ -97,11 +118,16 @@ function CommentItem({
   const userName = loggedInUser?.name || (loggedInUser as any)?.username || "Lance Pallesco";
   const userInitials = userName.substring(0, 2).toUpperCase();
 
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(comment.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(comment.upvoteCount);
   const [showReplies, setShowReplies] = useState(false);
+  const [includeMention, setIncludeMention] = useState(true);
 
-  // Ownership Check: Authorized if user is Comment Owner OR Post Owner
+  useEffect(() => {
+    setLiked(comment.isLiked ?? false);
+    setLikesCount(comment.upvoteCount);
+  }, [comment.isLiked, comment.upvoteCount]);
+
   const isCommentOwner =
     (loggedInUser?.id && comment.author.id === loggedInUser.id) ||
     (loggedInUser?.name && comment.author.name === loggedInUser.name) ||
@@ -115,20 +141,24 @@ function CommentItem({
 
   const canDelete = isCommentOwner || isPostOwner;
 
-  const toggleLike = () => {
+  const toggleLike = async () => {
     const next = !liked;
     setLiked(next);
     setLikesCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
     onLike(comment.id);
+
+    try {
+      await toggleAnswerVoteAction(comment.id);
+    } catch (err) {
+      console.error("Error liking comment:", err);
+    }
   };
 
   const isReplying = replyingToId === comment.id;
 
   return (
     <div className="space-y-2">
-      {/* Side-by-Side Comment Layout: Avatar (Left) + Content (Right) */}
       <div className="flex items-start gap-3">
-        {/* Left Column: Mid-Large Avatar */}
         <Avatar
           className={cn(
             "border border-border/50 shrink-0 mt-0.5",
@@ -144,15 +174,13 @@ function CommentItem({
           </AvatarFallback>
         </Avatar>
 
-        {/* Right Column: Name, Badge, Time, Body Text, Reactions */}
         <div className="flex-1 min-w-0 space-y-1">
-          {/* Header Line */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
               <span className="text-xs sm:text-sm font-bold text-foreground truncate">
                 {comment.author.name}
               </span>
-              <span className="text-[10px] text-muted-foreground/70 shrink-0">
+              <span className="text-[10px] text-muted-foreground/70 shrink-0" suppressHydrationWarning>
                 • {formatRelativeTime(comment.createdAt)}
               </span>
 
@@ -179,33 +207,19 @@ function CommentItem({
 
           {/* Comment Body Text */}
           <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal pt-0.5">
-            {formatCommentBody(comment.body)}
+            {formatCommentBody(comment)}
           </p>
 
           {/* Comment Actions: Heart Like & Reply */}
           <div className="flex items-center gap-3 pt-1 text-xs">
-            {/* Heart Like Button */}
-            <button
-              type="button"
-              onClick={toggleLike}
-              className={cn(
-                "flex items-center gap-1.5 transition-colors cursor-pointer group/cmt-heart",
-                liked && "text-rose-500 font-semibold"
-              )}
-              title="Like comment"
-            >
-              <Heart
-                className={cn(
-                  "w-3.5 h-3.5 transition-transform group-hover/cmt-heart:scale-110",
-                  liked
-                    ? "fill-rose-500 text-rose-500"
-                    : "text-muted-foreground group-hover/cmt-heart:text-rose-500"
-                )}
-              />
-              <span className={cn(liked ? "text-rose-500" : "text-muted-foreground font-medium")}>
-                {likesCount}
-              </span>
-            </button>
+            {/* Reusable LikeButton Component */}
+            <LikeButton
+              count={likesCount}
+              isLiked={liked}
+              onLike={toggleLike}
+              variant="comment"
+              size={isMother ? "md" : "sm"}
+            />
 
             {/* Reply Button (Only for Mother Comments) */}
             {isMother && (
@@ -226,7 +240,7 @@ function CommentItem({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                onReplySubmit(comment.id, comment.author.name);
+                onReplySubmit(comment.id, includeMention ? comment.author.name : undefined);
               }}
               className="mt-2.5 pt-2 flex items-center gap-2"
             >
@@ -239,19 +253,34 @@ function CommentItem({
                   {userInitials}
                 </AvatarFallback>
               </Avatar>
-              <input
-                type="text"
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                placeholder={`Reply to @${comment.author.name}...`}
-                className="flex-1 bg-muted/40 text-xs px-3.5 py-1.5 rounded-full border border-border/80 focus:outline-none focus:border-primary placeholder:text-muted-foreground/70"
-                autoFocus
-              />
+              <div className="flex-1 bg-muted/40 text-xs px-3 py-1 text-foreground rounded-full border border-border/80 focus-within:border-primary flex items-center gap-1.5 transition-all min-w-0">
+                {includeMention && (
+                  <span className="inline-flex items-center gap-1 bg-primary/15 text-primary font-semibold text-[11px] px-2 py-0.5 rounded-full shrink-0 select-none">
+                    @{comment.author.name}
+                    <button
+                      type="button"
+                      onClick={() => setIncludeMention(false)}
+                      className="hover:bg-primary/20 rounded-full p-0.5 transition-colors cursor-pointer text-primary"
+                      title="Remove mention tag"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                <input
+                  type="text"
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder={includeMention ? "Write a reply..." : `Reply to @${comment.author.name}...`}
+                  className="flex-1 bg-transparent text-xs py-1 focus:outline-none placeholder:text-muted-foreground/70 min-w-0"
+                  autoFocus
+                />
+              </div>
               <button
                 type="submit"
                 disabled={!replyText.trim()}
                 className={cn(
-                  "p-1.5 rounded-full text-primary hover:bg-primary/10 transition-colors",
+                  "p-1.5 rounded-full text-primary hover:bg-primary/10 transition-colors shrink-0",
                   !replyText.trim() && "opacity-40 cursor-not-allowed"
                 )}
               >
@@ -300,7 +329,9 @@ function CommentItem({
 }
 
 export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
-  const { data: session } = useSession();
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated" && !!session?.user;
   const loggedInUser = session?.user;
   const currentUserImage = loggedInUser?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
   const currentUserName = loggedInUser?.name || (loggedInUser as any)?.username || "Lance Pallesco";
@@ -309,6 +340,43 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
   const isVerified = post.status === "verified";
   const isPinned = post.status === "pinned";
   const isLiked = post.userVoteState === "up";
+  const isPostOwner =
+    (loggedInUser?.id && post.author.id === loggedInUser.id) ||
+    (loggedInUser?.name && post.author.name === loggedInUser.name) ||
+    post.author.name === currentUserName ||
+    post.author.id === "usr-current";
+
+  const [isCommentingDisabled, setIsCommentingDisabled] = useState(false);
+  const [isPostDeleteModalOpen, setIsPostDeleteModalOpen] = useState(false);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
+
+  const handleEditPost = () => {
+    toast.info("Edit post feature coming soon!");
+  };
+
+  const handleToggleCommenting = () => {
+    const nextState = !isCommentingDisabled;
+    setIsCommentingDisabled(nextState);
+    toast.success(nextState ? "Commenting turned off for this post." : "Commenting enabled.");
+  };
+
+  const confirmDeletePost = async () => {
+    setIsDeletingPost(true);
+    try {
+      const res = await deletePostAction(post.id);
+      if (res.success) {
+        toast.success("Post deleted");
+        setIsPostDeleteModalOpen(false);
+        router.refresh();
+      } else {
+        toast.error(res.error || "Failed to delete post.");
+      }
+    } catch (err) {
+      console.error("Error deleting post:", err);
+    } finally {
+      setIsDeletingPost(false);
+    }
+  };
 
   const [isBookmarkedState, setIsBookmarkedState] = useState(post.isBookmarked ?? false);
   const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
@@ -387,18 +455,9 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
       replies: [],
     };
 
-    const nextComments = [createdComment, ...postComments];
-    setPostComments(nextComments);
+    setPostComments((prev) => [createdComment, ...prev]);
     setIsExpanded(true);
     toast.success("Answer submitted!");
-
-    setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("komyut:update-comments", {
-          detail: { postId: post.id, comments: nextComments, answerCount: nextComments.length },
-        })
-      );
-    }, 0);
 
     try {
       const res = await createAnswerAction({
@@ -409,6 +468,7 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
         setPostComments((prev) =>
           prev.map((c) => (c.id === createdComment.id ? { ...c, id: res.answer.id } : c))
         );
+        router.refresh();
       }
     } catch (err) {
       console.error("Error persisting answer:", err);
@@ -425,32 +485,33 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
         }));
     };
 
-    const nextComments = removeCommentRecursively(postComments);
-    setPostComments(nextComments);
+    setPostComments((prev) => removeCommentRecursively(prev));
     toast.success("Answer deleted");
 
-    setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("komyut:update-comments", {
-          detail: { postId: post.id, comments: nextComments, answerCount: nextComments.length },
-        })
-      );
-    }, 0);
-
     try {
-      await deleteAnswerAction(commentId);
+      const res = await deleteAnswerAction(commentId);
+      if (res.success) {
+        router.refresh();
+      }
     } catch (err) {
       console.error("Error deleting answer:", err);
     }
   };
 
-  const handleReplySubmit = (parentId: string, parentAuthorName: string) => {
+  const handleReplySubmit = async (parentId: string, parentAuthorName?: string) => {
     if (!replyText.trim()) return;
+
+    const currentText = replyText.trim();
+    setReplyText("");
+    setReplyingToId(null);
+
+    const finalBodyText = parentAuthorName ? `@${parentAuthorName} ${currentText}` : currentText;
 
     const createdReply: Comment = {
       id: `reply-${Date.now()}`,
       postId: post.id,
       parentId: parentId,
+      parentAuthorName: parentAuthorName,
       author: {
         id: loggedInUser?.id || "usr-current",
         name: currentUserName,
@@ -459,7 +520,7 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
         reputationPoints: 100,
         verifiedAnswersCount: 0,
       },
-      body: `@${parentAuthorName} ${replyText.trim()}`,
+      body: finalBodyText,
       createdAt: new Date().toISOString(),
       upvoteCount: 0,
     };
@@ -482,22 +543,25 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
       });
     };
 
-    const nextComments = addReplyRecursively(postComments);
-    setPostComments(nextComments);
-    setReplyText("");
-    setReplyingToId(null);
+    setPostComments((prev) => addReplyRecursively(prev));
     setIsExpanded(true);
+    toast.success("Reply submitted!");
 
-    setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("komyut:update-comments", {
-          detail: { postId: post.id, comments: nextComments, answerCount: nextComments.length },
-        })
-      );
-    }, 0);
+    try {
+      const res = await createAnswerAction({
+        postId: post.id,
+        parentId: parentId,
+        body: `@${parentAuthorName} ${currentText}`,
+      });
+      if (res.success) {
+        router.refresh();
+      }
+    } catch (err) {
+      console.error("Error persisting reply:", err);
+    }
   };
 
-  const handleCommentUpvote = (commentId: string) => {};
+  const handleCommentUpvote = (commentId: string) => { };
 
   const sortedMotherComments = [...postComments].sort((a, b) => {
     if (a.isVerified && !b.isVerified) return -1;
@@ -537,23 +601,46 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
                 >
                   <MoreHorizontal className="w-4.5 h-4.5" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={handleBookmarkToggle} className="cursor-pointer gap-2.5">
-                    <Bookmark className={cn("w-4 h-4", isBookmarkedState && "fill-primary text-primary")} />
-                    <span>{isBookmarkedState ? "Saved in Bookmarks" : "Save post"}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleShareLink} className="cursor-pointer gap-2.5">
-                    <Share2 className="w-4 h-4" />
-                    <span>Share link</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleReportPost}
-                    className="cursor-pointer gap-2.5 text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-500/10"
-                  >
-                    <Flag className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                    <span>Report post</span>
-                  </DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-52 select-none">
+                  {isPostOwner ? (
+                    <>
+                      <DropdownMenuItem onClick={handleEditPost} className="cursor-pointer gap-2.5">
+                        <Pencil className="w-4 h-4 text-muted-foreground" />
+                        <span>Edit post</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleToggleCommenting} className="cursor-pointer gap-2.5">
+                        <MessageSquareOff className="w-4 h-4 text-muted-foreground" />
+                        <span>{isCommentingDisabled ? "Turn on commenting" : "Turn off commenting"}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setIsPostDeleteModalOpen(true)}
+                        className="cursor-pointer gap-2.5 text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-500/10 font-medium"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                        <span>Delete post</span>
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={handleBookmarkToggle} className="cursor-pointer gap-2.5">
+                        <Bookmark className={cn("w-4 h-4", isBookmarkedState && "fill-primary text-primary")} />
+                        <span>{isBookmarkedState ? "Saved in Bookmarks" : "Save post"}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleShareLink} className="cursor-pointer gap-2.5">
+                        <Share2 className="w-4 h-4" />
+                        <span>Share link</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={handleReportPost}
+                        className="cursor-pointer gap-2.5 text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-500/10 font-medium"
+                      >
+                        <Flag className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                        <span>Report post</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -582,20 +669,12 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
 
           <div className="pt-3 border-t border-border/60 flex items-center justify-between text-xs sm:text-sm text-muted-foreground px-0.5 select-none">
             <div className="flex items-center gap-5 sm:gap-6">
-              <button
-                type="button"
-                onClick={() => onVote(post.id, "up")}
-                className="flex items-center gap-1.5 hover:text-rose-500 transition-colors font-medium cursor-pointer group/heart"
-                title="Like question"
-              >
-                <Heart
-                  className={cn(
-                    "w-4 h-4 transition-transform group-hover/heart:scale-110",
-                    isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground"
-                  )}
-                />
-                <span className={cn("font-semibold", isLiked ? "text-rose-500" : "")}>{post.upvoteCount}</span>
-              </button>
+              <LikeButton
+                count={post.upvoteCount}
+                isLiked={isLiked}
+                onLike={() => onVote(post.id)}
+                variant="post"
+              />
 
               <button
                 type="button"
@@ -636,104 +715,129 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
             </div>
           </div>
 
-          {topMotherComment && (
-            <div className="pt-2 space-y-2.5">
-              {/* 1. Top Answer */}
-              <CommentItem
-                comment={topMotherComment}
-                postAuthorId={post.author.id}
-                postAuthorName={post.author.name}
-                isMother={true}
-                onLike={handleCommentUpvote}
-                onDelete={requestDeleteComment}
-                replyingToId={replyingToId}
-                setReplyingToId={setReplyingToId}
-                replyText={replyText}
-                setReplyText={setReplyText}
-                onReplySubmit={handleReplySubmit}
-              />
-
-              {/* 2. Remaining Answers List */}
-              {isExpanded && remainingMotherComments.length > 0 && (
-                <div className="space-y-3 pt-1">
-                  {remainingMotherComments.map((motherComment) => (
-                    <CommentItem
-                      key={motherComment.id}
-                      comment={motherComment}
-                      postAuthorId={post.author.id}
-                      postAuthorName={post.author.name}
-                      isMother={true}
-                      onLike={handleCommentUpvote}
-                      onDelete={requestDeleteComment}
-                      replyingToId={replyingToId}
-                      setReplyingToId={setReplyingToId}
-                      replyText={replyText}
-                      setReplyText={setReplyText}
-                      onReplySubmit={handleReplySubmit}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* 3. Toggle Button Placed Below All Answers */}
-              {remainingMotherComments.length > 0 && (
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsExpanded((prev) => !prev)}
-                    className="text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    {isExpanded ? (
-                      <>
-                        <ChevronUp className="w-3.5 h-3.5" />
-                        <span>Hide answers</span>
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-3.5 h-3.5" />
-                        <span>
-                          View {remainingMotherComments.length} more{" "}
-                          {remainingMotherComments.length === 1 ? "answer" : "answers"}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <form onSubmit={handleCommentSubmit} className="pt-2 flex items-center gap-2.5">
-            <Avatar className="h-8 w-8 border border-border shrink-0">
-              <AvatarImage
-                src={currentUserImage}
-                alt={currentUserName}
-              />
-              <AvatarFallback className="text-xs bg-primary/10 text-primary font-bold">
-                {currentUserInitials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 relative flex items-center">
-              <input
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Magbigay ng sagot..."
-                className="w-full bg-muted/40 hover:bg-muted/70 focus:bg-background text-xs sm:text-sm px-4 py-2.5 pr-12 rounded-full border border-border/80 focus:outline-none focus:border-primary/80 transition-all placeholder:text-muted-foreground/70"
-              />
-              <button
-                type="submit"
-                disabled={!newComment.trim()}
-                className="absolute right-3 p-1 text-primary disabled:opacity-40"
+          {!isAuthenticated ? (
+            <div className="pt-2">
+              <Link
+                href="/"
+                className="w-full py-2.5 px-4 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/80 flex items-center justify-between text-xs sm:text-sm transition-all cursor-pointer group/login-cta"
               >
-                <Send className="w-4 h-4" />
-              </button>
+                <div className="flex items-center gap-2 text-muted-foreground group-hover/login-cta:text-foreground font-medium truncate pr-2">
+                  <MessageCircle className="w-4 h-4 text-primary shrink-0" />
+                  <span className="truncate">
+                    {totalComments > 0
+                      ? `View all ${totalComments} ${totalComments === 1 ? "answer" : "answers"}`
+                      : "View answers & community discussion"}
+                  </span>
+                </div>
+                <span className="text-xs font-bold text-primary group-hover/login-cta:underline flex items-center gap-1 shrink-0">
+                  Sign in to view <LogIn className="w-3.5 h-3.5" />
+                </span>
+              </Link>
             </div>
-          </form>
+          ) : (
+            <>
+              {topMotherComment && (
+                <div className="pt-2 space-y-2.5">
+                  <CommentItem
+                    comment={topMotherComment}
+                    postAuthorId={post.author.id}
+                    postAuthorName={post.author.name}
+                    isMother={true}
+                    onLike={handleCommentUpvote}
+                    onDelete={requestDeleteComment}
+                    replyingToId={replyingToId}
+                    setReplyingToId={setReplyingToId}
+                    replyText={replyText}
+                    setReplyText={setReplyText}
+                    onReplySubmit={handleReplySubmit}
+                  />
+
+                  {isExpanded && remainingMotherComments.length > 0 && (
+                    <div className="space-y-3 pt-1">
+                      {remainingMotherComments.map((motherComment) => (
+                        <CommentItem
+                          key={motherComment.id}
+                          comment={motherComment}
+                          postAuthorId={post.author.id}
+                          postAuthorName={post.author.name}
+                          isMother={true}
+                          onLike={handleCommentUpvote}
+                          onDelete={requestDeleteComment}
+                          replyingToId={replyingToId}
+                          setReplyingToId={setReplyingToId}
+                          replyText={replyText}
+                          setReplyText={setReplyText}
+                          onReplySubmit={handleReplySubmit}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {remainingMotherComments.length > 0 && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsExpanded((prev) => !prev)}
+                        className="text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        {isExpanded ? (
+                          <>
+                            <ChevronUp className="w-3.5 h-3.5" />
+                            <span>Hide answers</span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-3.5 h-3.5" />
+                            <span>
+                              View {remainingMotherComments.length} more{" "}
+                              {remainingMotherComments.length === 1 ? "answer" : "answers"}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isCommentingDisabled ? (
+                <div className="pt-2 text-center text-xs font-semibold text-muted-foreground/70 bg-muted/30 py-2.5 rounded-2xl border border-border/60">
+                  Commenting has been turned off by the post author.
+                </div>
+              ) : (
+                <form onSubmit={handleCommentSubmit} className="pt-2 flex items-center gap-2.5">
+                  <Avatar className="h-8 w-8 border border-border shrink-0">
+                    <AvatarImage
+                      src={currentUserImage}
+                      alt={currentUserName}
+                    />
+                    <AvatarFallback className="text-xs bg-primary/10 text-primary font-bold">
+                      {currentUserInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 relative flex items-center">
+                    <input
+                      type="text"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Magbigay ng sagot..."
+                      className="w-full bg-muted/40 hover:bg-muted/70 focus:bg-background text-xs sm:text-sm px-4 py-2.5 pr-12 rounded-full border border-border/80 focus:outline-none focus:border-primary/80 transition-all placeholder:text-muted-foreground/70"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newComment.trim()}
+                      className="absolute right-3 p-1 text-primary disabled:opacity-40"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Popup Modal */}
       <ConfirmModal
         isOpen={deleteTargetId !== null}
         onClose={() => setDeleteTargetId(null)}
@@ -744,6 +848,18 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
         cancelText="Cancel"
         variant="danger"
         isLoading={isDeleting}
+      />
+
+      <ConfirmModal
+        isOpen={isPostDeleteModalOpen}
+        onClose={() => setIsPostDeleteModalOpen(false)}
+        onConfirm={confirmDeletePost}
+        title="Delete Post?"
+        description="Are you sure you want to delete this commute post? All associated answers and comments will be permanently removed."
+        confirmText="Delete Post"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeletingPost}
       />
     </article>
   );

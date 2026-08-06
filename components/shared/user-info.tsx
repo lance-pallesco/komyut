@@ -45,7 +45,7 @@ export function UserInfo({ author, createdAt, isVerified }: UserInfoProps) {
             </span>
           )}
         </div>
-        <span className="text-[11px] text-muted-foreground/80 font-normal leading-tight mt-0.5">
+        <span className="text-[11px] text-muted-foreground/80 font-normal leading-tight mt-0.5" suppressHydrationWarning>
           {formattedTime}
         </span>
       </div>

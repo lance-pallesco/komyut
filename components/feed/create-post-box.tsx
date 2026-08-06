@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { MapPin, Bus, Send, Globe, Image as ImageIcon, Smile, Tag, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createPostAction } from "@/app/actions/post-actions";
 
@@ -18,19 +19,20 @@ const TRANSPORT_TAGS = [
   "MRT",
   "LRT",
   "UV Express",
-  "TODA / Tricycle",
+  "Tricycle",
   "Walk",
 ];
 
 export function CreatePostBox() {
-  const { data: session, status } = useSession();
+  const router = useRouter();
+  const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [title, setTitle] = useState("");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [body, setBody] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>(["Jeepney", "Bus"]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentUser = session?.user;
@@ -50,27 +52,15 @@ export function CreatePostBox() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim()) {
-      toast.error("Please enter a question title.");
-      return;
-    }
-    if (!body.trim()) {
-      toast.error("Please fill in the post details.");
-      return;
-    }
-    if (!origin.trim()) {
-      toast.error("Please enter an origin location (From).");
-      return;
-    }
-    if (!destination.trim()) {
-      toast.error("Please enter a destination location (To).");
+    if (!title.trim() || !origin.trim() || !destination.trim() || !body.trim()) {
+      toast.error("Please fill in all required fields.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const res = await createPostAction({
+      const result = await createPostAction({
         title: title.trim(),
         origin: origin.trim(),
         destination: destination.trim(),
@@ -79,52 +69,22 @@ export function CreatePostBox() {
         selectedTagNames: selectedTags,
       });
 
-      if (!res.success) {
-        toast.error(res.error || "Failed to create post.");
-        setIsSubmitting(false);
-        return;
+      if (result.success) {
+        toast.success("Commute question posted!");
+        setIsOpen(false);
+
+        // Reset Form
+        setTitle("");
+        setOrigin("");
+        setDestination("");
+        setBody("");
+        setIsAnonymous(false);
+        setSelectedTags([]);
+
+        router.refresh();
+      } else {
+        toast.error(result.error || "Failed to post question.");
       }
-
-      toast.success("Your commute question has been posted!");
-
-      // Dispatch custom event to instantly prepend newly created post to feed
-      const newPostObj = {
-        id: res.post?.id || `post-${Date.now()}`,
-        author: {
-          id: currentUser?.id || "usr-me",
-          name: userName,
-          username: (currentUser as any)?.username || "commuter",
-          avatarUrl: userImage || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-          badge: isAnonymous ? "Anonymous" : "Commuter",
-          reputationPoints: 120,
-          verifiedAnswersCount: 0,
-        },
-        title: title.trim(),
-        origin: origin.trim(),
-        destination: destination.trim(),
-        body: body.trim(),
-        region: "Metro Manila",
-        transportModes: selectedTags as any,
-        answerCount: 0,
-        upvoteCount: 0,
-        userVoteState: null,
-        isBookmarked: false,
-        status: "unanswered" as const,
-        createdAt: new Date().toISOString(),
-      };
-
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("komyut:new-post", { detail: newPostObj }));
-      }, 0);
-
-      setIsOpen(false);
-
-      // Reset Form
-      setTitle("");
-      setOrigin("");
-      setDestination("");
-      setBody("");
-      setIsAnonymous(false);
     } catch (err: any) {
       toast.error(err?.message || "An error occurred while posting.");
     } finally {
@@ -301,11 +261,10 @@ export function CreatePostBox() {
                       key={tag}
                       type="button"
                       onClick={() => toggleTag(tag)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer border ${
-                        isSelected
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer border ${isSelected
                           ? "bg-blue-900 text-white border-blue-900 shadow-xs"
                           : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                      }`}
+                        }`}
                     >
                       {tag}
                     </button>
