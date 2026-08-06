@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import type { Post, Comment } from "@/types";
+import { formatRelativeTime } from "@/lib/formatters";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserInfo } from "@/components/shared/user-info";
 import { TransportBadge } from "@/components/shared/transport-badge";
@@ -25,10 +27,13 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { createAnswerAction, deleteAnswerAction } from "@/app/actions/answer-actions";
+import { ConfirmModal } from "@/components/shared/confirm-modal";
 
 interface PostCardProps {
   post: Post;
@@ -38,8 +43,11 @@ interface PostCardProps {
 
 interface CommentItemProps {
   comment: Comment;
+  postAuthorId?: string;
+  postAuthorName?: string;
   isMother?: boolean;
   onLike: (id: string) => void;
+  onDelete?: (id: string) => void;
   replyingToId: string | null;
   setReplyingToId: (id: string | null) => void;
   replyText: string;
@@ -72,17 +80,40 @@ function formatCommentBody(body: string) {
 
 function CommentItem({
   comment,
+  postAuthorId,
+  postAuthorName,
   isMother = false,
   onLike,
+  onDelete,
   replyingToId,
   setReplyingToId,
   replyText,
   setReplyText,
   onReplySubmit,
 }: CommentItemProps) {
+  const { data: session } = useSession();
+  const loggedInUser = session?.user;
+  const userImage = loggedInUser?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
+  const userName = loggedInUser?.name || (loggedInUser as any)?.username || "Lance Pallesco";
+  const userInitials = userName.substring(0, 2).toUpperCase();
+
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(comment.upvoteCount);
   const [showReplies, setShowReplies] = useState(false);
+
+  // Ownership Check: Authorized if user is Comment Owner OR Post Owner
+  const isCommentOwner =
+    (loggedInUser?.id && comment.author.id === loggedInUser.id) ||
+    (loggedInUser?.name && comment.author.name === loggedInUser.name) ||
+    comment.author.id === "usr-current" ||
+    comment.author.name === userName;
+
+  const isPostOwner =
+    (loggedInUser?.id && postAuthorId && postAuthorId === loggedInUser.id) ||
+    (loggedInUser?.name && postAuthorName && postAuthorName === loggedInUser.name) ||
+    (postAuthorName && postAuthorName === userName);
+
+  const canDelete = isCommentOwner || isPostOwner;
 
   const toggleLike = () => {
     const next = !liked;
@@ -117,21 +148,33 @@ function CommentItem({
         <div className="flex-1 min-w-0 space-y-1">
           {/* Header Line */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
               <span className="text-xs sm:text-sm font-bold text-foreground truncate">
                 {comment.author.name}
               </span>
+              <span className="text-[10px] text-muted-foreground/70 shrink-0">
+                • {formatRelativeTime(comment.createdAt)}
+              </span>
 
               {comment.isVerified && (
-                <span className="text-[10px] sm:text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full inline-flex items-center gap-0.5 shrink-0">
+                <span className="text-[10px] sm:text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full inline-flex items-center gap-0.5 shrink-0 ml-0.5">
                   <CheckCircle2 className="w-3 h-3" /> Best Answer
                 </span>
               )}
             </div>
 
-            <span className="text-xs text-muted-foreground/70 shrink-0">
-              {comment.createdAt}
-            </span>
+            {/* Delete Button (Allowed ONLY for Comment Owner or Post Owner) */}
+            {canDelete && onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(comment.id)}
+                className="flex items-center gap-1 text-muted-foreground/70 hover:text-rose-600 dark:hover:text-rose-400 transition-colors font-medium cursor-pointer group/cmt-delete shrink-0"
+                title="Delete answer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-muted-foreground/70 group-hover/cmt-delete:text-rose-600" />
+                <span className="text-[11px]">Delete</span>
+              </button>
+            )}
           </div>
 
           {/* Comment Body Text */}
@@ -139,14 +182,14 @@ function CommentItem({
             {formatCommentBody(comment.body)}
           </p>
 
-          {/* Reactions & Action Bar */}
-          <div className="pt-1 flex items-center gap-4 text-xs">
-            {/* Heart Reaction */}
+          {/* Comment Actions: Heart Like & Reply */}
+          <div className="flex items-center gap-3 pt-1 text-xs">
+            {/* Heart Like Button */}
             <button
               type="button"
               onClick={toggleLike}
               className={cn(
-                "flex items-center gap-1.5 hover:text-rose-500 transition-colors font-medium cursor-pointer group/cmt-heart",
+                "flex items-center gap-1.5 transition-colors cursor-pointer group/cmt-heart",
                 liked && "text-rose-500 font-semibold"
               )}
               title="Like comment"
@@ -189,11 +232,11 @@ function CommentItem({
             >
               <Avatar className="h-7 w-7 border border-border shrink-0">
                 <AvatarImage
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                  alt="John Doe"
+                  src={userImage}
+                  alt={userName}
                 />
                 <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-bold">
-                  JD
+                  {userInitials}
                 </AvatarFallback>
               </Avatar>
               <input
@@ -257,6 +300,12 @@ function CommentItem({
 }
 
 export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
+  const { data: session } = useSession();
+  const loggedInUser = session?.user;
+  const currentUserImage = loggedInUser?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
+  const currentUserName = loggedInUser?.name || (loggedInUser as any)?.username || "Lance Pallesco";
+  const currentUserInitials = currentUserName.substring(0, 2).toUpperCase();
+
   const isVerified = post.status === "verified";
   const isPinned = post.status === "pinned";
   const isLiked = post.userVoteState === "up";
@@ -267,6 +316,21 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
   const [newComment, setNewComment] = useState("");
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  const requestDeleteComment = (commentId: string) => {
+    setDeleteTargetId(commentId);
+  };
+
+  const confirmDeleteComment = async () => {
+    if (!deleteTargetId) return;
+    setIsDeleting(true);
+    await handleDeleteComment(deleteTargetId);
+    setIsDeleting(false);
+    setDeleteTargetId(null);
+  };
 
   const getTotalCommentCount = (comments: Comment[]): number => {
     let count = 0;
@@ -299,30 +363,85 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
     toast.info("Report submitted. Our moderators will review this post.");
   };
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
+
+    const currentText = newComment.trim();
+    setNewComment("");
 
     const createdComment: Comment = {
       id: `comment-${Date.now()}`,
       postId: post.id,
       author: {
-        id: "usr-current",
-        name: "John Doe",
-        username: "john_doe",
-        avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
+        id: loggedInUser?.id || "usr-current",
+        name: currentUserName,
+        username: (loggedInUser as any)?.username || "commuter",
+        avatarUrl: currentUserImage,
         reputationPoints: 100,
         verifiedAnswersCount: 0,
       },
-      body: newComment.trim(),
-      createdAt: "Just now",
+      body: currentText,
+      createdAt: new Date().toISOString(),
       upvoteCount: 0,
       replies: [],
     };
 
-    setPostComments((prev) => [createdComment, ...prev]);
-    setNewComment("");
+    const nextComments = [createdComment, ...postComments];
+    setPostComments(nextComments);
     setIsExpanded(true);
+    toast.success("Answer submitted!");
+
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("komyut:update-comments", {
+          detail: { postId: post.id, comments: nextComments, answerCount: nextComments.length },
+        })
+      );
+    }, 0);
+
+    try {
+      const res = await createAnswerAction({
+        postId: post.id,
+        body: currentText,
+      });
+      if (res.success && res.answer?.id) {
+        setPostComments((prev) =>
+          prev.map((c) => (c.id === createdComment.id ? { ...c, id: res.answer.id } : c))
+        );
+      }
+    } catch (err) {
+      console.error("Error persisting answer:", err);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const removeCommentRecursively = (list: Comment[]): Comment[] => {
+      return list
+        .filter((c) => c.id !== commentId)
+        .map((c) => ({
+          ...c,
+          replies: c.replies ? removeCommentRecursively(c.replies) : [],
+        }));
+    };
+
+    const nextComments = removeCommentRecursively(postComments);
+    setPostComments(nextComments);
+    toast.success("Answer deleted");
+
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("komyut:update-comments", {
+          detail: { postId: post.id, comments: nextComments, answerCount: nextComments.length },
+        })
+      );
+    }, 0);
+
+    try {
+      await deleteAnswerAction(commentId);
+    } catch (err) {
+      console.error("Error deleting answer:", err);
+    }
   };
 
   const handleReplySubmit = (parentId: string, parentAuthorName: string) => {
@@ -333,15 +452,15 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
       postId: post.id,
       parentId: parentId,
       author: {
-        id: "usr-current",
-        name: "John Doe",
-        username: "john_doe",
-        avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        id: loggedInUser?.id || "usr-current",
+        name: currentUserName,
+        username: (loggedInUser as any)?.username || "commuter",
+        avatarUrl: currentUserImage,
         reputationPoints: 100,
         verifiedAnswersCount: 0,
       },
       body: `@${parentAuthorName} ${replyText.trim()}`,
-      createdAt: "Just now",
+      createdAt: new Date().toISOString(),
       upvoteCount: 0,
     };
 
@@ -363,10 +482,19 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
       });
     };
 
-    setPostComments((prev) => addReplyRecursively(prev));
+    const nextComments = addReplyRecursively(postComments);
+    setPostComments(nextComments);
     setReplyText("");
     setReplyingToId(null);
     setIsExpanded(true);
+
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("komyut:update-comments", {
+          detail: { postId: post.id, comments: nextComments, answerCount: nextComments.length },
+        })
+      );
+    }, 0);
   };
 
   const handleCommentUpvote = (commentId: string) => {};
@@ -456,7 +584,7 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
             <div className="flex items-center gap-5 sm:gap-6">
               <button
                 type="button"
-                onClick={() => onVote(post.id, isLiked ? "down" : "up")}
+                onClick={() => onVote(post.id, "up")}
                 className="flex items-center gap-1.5 hover:text-rose-500 transition-colors font-medium cursor-pointer group/heart"
                 title="Like question"
               >
@@ -510,10 +638,14 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
 
           {topMotherComment && (
             <div className="pt-2 space-y-2.5">
+              {/* 1. Top Answer */}
               <CommentItem
                 comment={topMotherComment}
+                postAuthorId={post.author.id}
+                postAuthorName={post.author.name}
                 isMother={true}
                 onLike={handleCommentUpvote}
+                onDelete={requestDeleteComment}
                 replyingToId={replyingToId}
                 setReplyingToId={setReplyingToId}
                 replyText={replyText}
@@ -521,36 +653,18 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
                 onReplySubmit={handleReplySubmit}
               />
 
-              {(remainingMotherComments.length > 0 || (topMotherComment.replies && topMotherComment.replies.length > 0)) && (
-                <div className="pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setIsExpanded((prev) => !prev)}
-                    className="text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    {isExpanded ? (
-                      <>
-                        <ChevronUp className="w-3.5 h-3.5" />
-                        Hide answers
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-3.5 h-3.5" />
-                        View all {totalComments} answers
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
+              {/* 2. Remaining Answers List */}
               {isExpanded && remainingMotherComments.length > 0 && (
                 <div className="space-y-3 pt-1">
                   {remainingMotherComments.map((motherComment) => (
                     <CommentItem
                       key={motherComment.id}
                       comment={motherComment}
+                      postAuthorId={post.author.id}
+                      postAuthorName={post.author.name}
                       isMother={true}
                       onLike={handleCommentUpvote}
+                      onDelete={requestDeleteComment}
                       replyingToId={replyingToId}
                       setReplyingToId={setReplyingToId}
                       replyText={replyText}
@@ -560,17 +674,43 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
                   ))}
                 </div>
               )}
+
+              {/* 3. Toggle Button Placed Below All Answers */}
+              {remainingMotherComments.length > 0 && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded((prev) => !prev)}
+                    className="text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    {isExpanded ? (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5" />
+                        <span>Hide answers</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        <span>
+                          View {remainingMotherComments.length} more{" "}
+                          {remainingMotherComments.length === 1 ? "answer" : "answers"}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
           <form onSubmit={handleCommentSubmit} className="pt-2 flex items-center gap-2.5">
             <Avatar className="h-8 w-8 border border-border shrink-0">
               <AvatarImage
-                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80"
-                alt="John Doe"
+                src={currentUserImage}
+                alt={currentUserName}
               />
               <AvatarFallback className="text-xs bg-primary/10 text-primary font-bold">
-                JD
+                {currentUserInitials}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 relative flex items-center">
@@ -592,6 +732,19 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
           </form>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Popup Modal */}
+      <ConfirmModal
+        isOpen={deleteTargetId !== null}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={confirmDeleteComment}
+        title="Delete Answer?"
+        description="Are you sure you want to delete this commute answer? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </article>
   );
 }
