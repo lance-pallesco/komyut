@@ -67,7 +67,7 @@ export function LeftSidebar() {
                 {userName}
               </Link>
               <p className="text-[11px] font-medium text-muted-foreground truncate">
-                {userHandle} • <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Route Master ⚡</span>
+                {userHandle} • <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Route Master </span>
               </p>
 
               {/* Stats Bar */}

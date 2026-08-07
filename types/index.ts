@@ -13,9 +13,7 @@ export type TransportMode =
   | "Bus"
   | "MRT"
   | "LRT"
-  | "PNR"
   | "Tricycle"
-  | "Ferry"
   | "Walk";
 
 export type PostStatus = "verified" | "answered" | "unanswered" | "pinned";
@@ -60,6 +58,8 @@ export interface Post {
   bookmarkCount?: number;
   userVoteState?: "up" | "down" | null;
   isBookmarked?: boolean;
+  isCommentingDisabled?: boolean;
+  isAnonymous?: boolean;
   status: PostStatus;
   createdAt: string;
   comments?: Comment[];

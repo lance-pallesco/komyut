@@ -76,7 +76,7 @@ export default function ProfilePage() {
                   <h1 className="text-2xl font-extrabold text-foreground tracking-tight">{userName}</h1>
                   <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs font-bold gap-1 px-2.5 py-0.5">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    Route Master ⚡
+                    Route Master 
                   </Badge>
                 </div>
 

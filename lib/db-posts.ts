@@ -86,17 +86,29 @@ export async function getFeedPosts(userId?: string): Promise<Post[]> {
         })),
       }));
 
+      const authorObj = p.isAnonymous
+        ? {
+            id: p.author.id,
+            name: "Anonymous Commuter",
+            username: "anonymous",
+            avatarUrl: undefined,
+            badge: "Anonymous Commuter",
+            reputationPoints: 0,
+            verifiedAnswersCount: 0,
+          }
+        : {
+            id: p.author.id,
+            name: p.author.name || p.author.username,
+            username: p.author.username,
+            avatarUrl: p.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+            badge: p.author.role === "admin" ? "Community Guide" : "Route Master",
+            reputationPoints: p.author.reputationPoints || 120,
+            verifiedAnswersCount: p.author.verifiedAnswersCount || 0,
+          };
+
       return {
         id: p.id,
-        author: {
-          id: p.author.id,
-          name: p.author.name || p.author.username,
-          username: p.author.username,
-          avatarUrl: p.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-          badge: p.author.role === "admin" ? "Community Guide" : "Route Master",
-          reputationPoints: p.author.reputationPoints || 120,
-          verifiedAnswersCount: p.author.verifiedAnswersCount || 0,
-        },
+        author: authorObj,
         title: p.title,
         origin: p.origin,
         destination: p.destination,
@@ -107,6 +119,8 @@ export async function getFeedPosts(userId?: string): Promise<Post[]> {
         upvoteCount: p.upvoteCount,
         userVoteState: votedPostIds.has(p.id) ? "up" : null,
         isBookmarked: bookmarkedPostIds.has(p.id),
+        isCommentingDisabled: p.isCommentingDisabled || false,
+        isAnonymous: p.isAnonymous || false,
         status: p.status as any,
         createdAt: p.createdAt.toISOString(),
         comments,
