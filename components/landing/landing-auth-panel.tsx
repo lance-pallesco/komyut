@@ -64,7 +64,6 @@ export function LandingAuthPanel() {
           return;
         }
 
-        // Execute Server Action for User Registration
         const res = await registerUserAction({
           name,
           username,
@@ -80,7 +79,6 @@ export function LandingAuthPanel() {
 
         toast.success("Account created successfully! Logging you in...");
 
-        // Automatically sign in after successful registration
         const signInRes = await signIn("credentials", {
           emailOrUsername: email,
           password,
@@ -94,7 +92,6 @@ export function LandingAuthPanel() {
           router.push("/feed");
         }
       } else {
-        // Sign in with credentials
         const res = await signIn("credentials", {
           emailOrUsername: email,
           password,
@@ -141,7 +138,6 @@ export function LandingAuthPanel() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Email / Username & Password Form */}
         <form onSubmit={handleFormSubmit} className="space-y-3">
           {mode === "register" && (
             <>
@@ -220,7 +216,6 @@ export function LandingAuthPanel() {
           </Button>
         </form>
 
-        {/* Divider */}
         <div className="relative flex items-center justify-center my-2">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border/80" />
@@ -230,9 +225,7 @@ export function LandingAuthPanel() {
           </span>
         </div>
 
-        {/* Social OAuth Buttons */}
         <div className="grid grid-cols-2 gap-2">
-          {/* Google OAuth Button */}
           <Button
             type="button"
             variant="outline"
@@ -265,7 +258,6 @@ export function LandingAuthPanel() {
             <span>Google</span>
           </Button>
 
-          {/* Facebook OAuth Button */}
           <Button
             type="button"
             variant="outline"
@@ -284,7 +276,6 @@ export function LandingAuthPanel() {
           </Button>
         </div>
 
-        {/* Toggle Mode & Guest Link */}
         <div className="pt-2 space-y-2 border-t border-border/50 text-center">
           <div className="text-xs text-muted-foreground">
             {mode === "login" ? "Don't have an account? " : "Already have an account? "}

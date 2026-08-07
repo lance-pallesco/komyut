@@ -13,18 +13,21 @@ interface UserInfoProps {
 
 export function UserInfo({ author, createdAt, isVerified }: UserInfoProps) {
   const formattedTime = useRelativeTime(createdAt);
-  const initials = author.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .substring(0, 2)
-    .toUpperCase();
+  const isAnonymous = author.name === "Anonymous Commuter" || !author.avatarUrl;
+  const initials = isAnonymous
+    ? "AC"
+    : author.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase();
 
   return (
     <div className="flex items-center gap-2.5 select-none">
       <Avatar className="h-9 w-9 border border-border/60 shrink-0">
-        <AvatarImage src={author.avatarUrl} alt={author.name} />
-        <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+        {author.avatarUrl && <AvatarImage src={author.avatarUrl} alt={author.name} />}
+        <AvatarFallback className="text-xs bg-muted text-foreground font-extrabold">
           {initials}
         </AvatarFallback>
       </Avatar>
@@ -45,7 +48,7 @@ export function UserInfo({ author, createdAt, isVerified }: UserInfoProps) {
             </span>
           )}
         </div>
-        <span className="text-[11px] text-muted-foreground/80 font-normal leading-tight mt-0.5">
+        <span className="text-[11px] text-muted-foreground/80 font-normal leading-tight mt-0.5" suppressHydrationWarning>
           {formattedTime}
         </span>
       </div>

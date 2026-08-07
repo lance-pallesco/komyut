@@ -27,17 +27,12 @@ export function FeedLayout({ filterHook }: FeedLayoutProps) {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 w-full flex-1">
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        {/* Left Sidebar (Desktop >1024px) */}
         <aside className="hidden lg:block lg:col-span-3 sticky top-22">
           <LeftSidebar />
         </aside>
 
-        {/* Main Feed Column (Flex Center) */}
         <main className="col-span-1 md:col-span-8 lg:col-span-6 space-y-4">
-          {/* Top "What's on your mind / Create Post" Box */}
           <CreatePostBox />
-
-          {/* Post Feed List */}
           <PostList
             posts={filteredPosts}
             isLoading={isLoading}
@@ -46,7 +41,6 @@ export function FeedLayout({ filterHook }: FeedLayoutProps) {
           />
         </main>
 
-        {/* Right Sidebar (Tablet & Desktop >768px) */}
         <div className="hidden md:block md:col-span-4 lg:col-span-3 sticky top-22">
           <RightSidebar
             onRouteClick={(origin, dest) => {

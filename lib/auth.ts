@@ -31,8 +31,6 @@ export const authOptions: NextAuthOptions = {
         }
 
         const identifier = credentials.emailOrUsername.toLowerCase().trim();
-
-        // Search user by email or username
         const dbUser = await prisma.user.findFirst({
           where: {
             OR: [
@@ -67,19 +65,16 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "google" || account?.provider === "facebook") {
         if (!user.email) return false;
 
-        // Check if user already exists in DB
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email },
         });
 
         if (!existingUser) {
-          // Generate unique username from name or email prefix
           const baseUsername = (user.name || user.email.split("@")[0])
             .toLowerCase()
             .replace(/[^a-z0-9]/g, "");
           const uniqueUsername = `${baseUsername}${Math.floor(1000 + Math.random() * 9000)}`;
 
-          // Create first-time user record in DB on OAuth login
           await prisma.user.create({
             data: {
               email: user.email,
@@ -100,7 +95,6 @@ export const authOptions: NextAuthOptions = {
         token.username = (user as any).username;
         token.role = (user as any).role || "user";
       } else if (token.email && !token.username) {
-        // Hydrate from DB only once if username is missing from token
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
         });

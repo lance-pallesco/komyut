@@ -231,23 +231,6 @@ generator client {
   previewFeatures = ["postgresqlExtensions"]
 }
 
-enum AuthProvider {
-  GOOGLE
-  FACEBOOK
-  EMAIL
-}
-
-enum VoteType {
-  UPVOTE
-  DOWNVOTE
-}
-
-enum TagType {
-  AREA
-  TRANSPORT
-  CUSTOM
-}
-
 enum NotificationType {
   NEW_ANSWER
   UPVOTE

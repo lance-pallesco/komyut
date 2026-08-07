@@ -42,9 +42,11 @@ model Post {
   destination    String
   region         String   @default("Metro Manila")
   status         String   @default("unanswered") // "unanswered", "answered", "verified", "pinned"
-  upvoteCount    Int      @default(0)
-  answerCount    Int      @default(0)
-  createdAt      DateTime @default(now())
+  upvoteCount          Int      @default(0)
+  answerCount          Int      @default(0)
+  isCommentingDisabled Boolean  @default(false)
+  isAnonymous          Boolean  @default(false)
+  createdAt            DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   answers       Answer[]

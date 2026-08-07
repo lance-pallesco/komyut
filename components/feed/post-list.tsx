@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 interface PostListProps {
   posts: Post[];
   isLoading?: boolean;
-  onVote: (postId: string, direction: "up" | "down") => void;
+  onVote: (postId: string) => void;
   onBookmark: (postId: string) => void;
 }
 

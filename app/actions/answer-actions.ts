@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 
 export interface CreateAnswerInput {
   postId: string;
+  parentId?: string;
   body: string;
   isAnonymous?: boolean;
   imageUrls?: string[];
@@ -27,7 +28,7 @@ export async function createAnswerAction(input: CreateAnswerInput) {
       userId = defaultUser.id;
     }
 
-    const { postId, body, isAnonymous = false, imageUrls = [] } = input;
+    const { postId, parentId, body, isAnonymous = false, imageUrls = [] } = input;
 
     if (!postId) {
       return { success: false, error: "Post ID is required." };
@@ -36,10 +37,10 @@ export async function createAnswerAction(input: CreateAnswerInput) {
       return { success: false, error: "Answer content cannot be empty." };
     }
 
-    // Save answer to PostgreSQL database via Prisma ORM
     const answer = await prisma.answer.create({
       data: {
         postId,
+        parentId: parentId || null,
         authorId: userId,
         body: body.trim(),
         upvoteCount: 0,
@@ -47,7 +48,6 @@ export async function createAnswerAction(input: CreateAnswerInput) {
       },
     });
 
-    // Increment post answerCount
     await prisma.post.update({
       where: { id: postId },
       data: {
@@ -79,17 +79,14 @@ export async function deleteAnswerAction(answerId: string) {
       return { success: false, error: "Answer not found." };
     }
 
-    // Verify ownership: User must be comment author OR post owner
     if (userId && existingAnswer.authorId !== userId && existingAnswer.post?.authorId !== userId) {
       return { success: false, error: "Unauthorized to delete this answer." };
     }
-
-    // Delete answer from PostgreSQL database
+    
     await prisma.answer.delete({
       where: { id: answerId },
     });
 
-    // Decrement post answerCount
     await prisma.post.update({
       where: { id: existingAnswer.postId },
       data: {
