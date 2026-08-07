@@ -6,21 +6,26 @@ import { formatNumber } from "@/lib/formatters";
 
 interface TopContributorsProps {
   contributors: TopContributor[];
+  maxItems?: number;
   onSeeAll?: () => void;
 }
 
-export function TopContributors({ contributors, onSeeAll }: TopContributorsProps) {
+export function TopContributors({
+  contributors,
+  maxItems = 3,
+  onSeeAll,
+}: TopContributorsProps) {
   return (
     <Card className="border-border/60 shadow-2xs">
-      <CardHeader className="pb-2.5 pt-4 px-4">
+      <CardHeader className="pb-2 pt-3.5 px-4">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
           <Award className="w-3.5 h-3.5 text-amber-500" />
           <span>Top Route Contributors</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-3 pt-0">
-        <ol className="space-y-3">
-          {contributors.slice(0, 5).map((tc) => {
+        <ol className="space-y-2.5">
+          {contributors.slice(0, maxItems).map((tc) => {
             const initials = tc.user.name
               .split(" ")
               .map((n) => n[0])
@@ -30,20 +35,20 @@ export function TopContributors({ contributors, onSeeAll }: TopContributorsProps
             return (
               <li
                 key={tc.id}
-                className="flex items-center justify-between gap-3 text-xs"
+                className="flex items-center justify-between gap-2.5 text-xs"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="font-semibold text-xs text-muted-foreground/70 w-4 text-center">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-semibold text-[11px] text-muted-foreground/70 w-3.5 text-center">
                     #{tc.rank}
                   </span>
-                  <Avatar className="h-8 w-8 border border-border shrink-0">
+                  <Avatar className="h-7 w-7 border border-border shrink-0">
                     <AvatarImage src={tc.user.avatarUrl} alt={tc.user.name} />
-                    <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                    <AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col min-w-0">
-                    <span className="font-semibold text-foreground truncate hover:underline cursor-pointer">
+                    <span className="font-semibold text-foreground truncate hover:underline cursor-pointer text-xs">
                       {tc.user.name}
                     </span>
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -54,10 +59,10 @@ export function TopContributors({ contributors, onSeeAll }: TopContributorsProps
                 </div>
 
                 <div className="text-right shrink-0">
-                  <span className="font-bold text-foreground text-xs">
+                  <span className="font-bold text-foreground text-[11px]">
                     {formatNumber(tc.user.reputationPoints)}
                   </span>
-                  <span className="text-[10px] text-muted-foreground block">pts</span>
+                  <span className="text-[9px] text-muted-foreground block -mt-0.5">pts</span>
                 </div>
               </li>
             );
@@ -65,7 +70,7 @@ export function TopContributors({ contributors, onSeeAll }: TopContributorsProps
         </ol>
       </CardContent>
       {onSeeAll && (
-        <div className="border-t border-border/50 px-4 py-2.5 bg-muted/20 rounded-b-xl">
+        <div className="border-t border-border/50 px-4 py-2 bg-muted/20 rounded-b-xl">
           <button
             type="button"
             onClick={onSeeAll}

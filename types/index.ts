@@ -102,9 +102,26 @@ export interface TopContributor {
 }
 
 export interface CommunityStat {
+  id: string;
   label: string;
-  value: string;
-  changeText?: string;
+  value: string | number;
+  change?: string;
+}
+
+export type NotificationType = "NEW_ANSWER" | "UPVOTE" | "ACCEPTED" | "MENTION";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  referenceId: string;
+  isRead: boolean;
+  createdAt: string;
+  actor?: {
+    name: string;
+    avatarUrl?: string;
+  };
 }
 
 export interface FilterState {

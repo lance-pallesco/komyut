@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { NAV_ITEMS } from "@/lib/constants";
 import { Home, User, Bookmark, HelpCircle, Award, ShieldCheck, Sparkles, MapPin, ChevronRight, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TopContributors } from "@/components/sidebar/top-contributors";
+import { MOCK_TOP_CONTRIBUTORS } from "@/lib/mock-data";
 
 const ICON_MAP = {
   Home,
@@ -18,6 +20,7 @@ const ICON_MAP = {
 
 export function LeftSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session, status } = useSession();
 
   // Updated navigation list with My Profile tab
@@ -26,7 +29,7 @@ export function LeftSidebar() {
     { id: "profile", label: "My Profile", icon: "User", href: "/profile" },
     { id: "saved", label: "Saved Routes", icon: "Bookmark", href: "/saved" },
     { id: "my-questions", label: "My Questions", icon: "HelpCircle", href: "/my-questions" },
-    { id: "contributors", label: "Top Contributors", icon: "Award", href: "/leaderboard" },
+    { id: "contributors", label: "Top Contributors", icon: "Award", href: "/leaderboards" },
     { id: "guidelines", label: "Community Rules", icon: "ShieldCheck", href: "/rules" },
   ];
 
@@ -143,6 +146,13 @@ export function LeftSidebar() {
           );
         })}
       </div>
+
+      {/* Top Route Contributors Card (Mobile PWA Optimized - Top 3) */}
+      <TopContributors
+        contributors={MOCK_TOP_CONTRIBUTORS}
+        maxItems={3}
+        onSeeAll={() => router.push("/leaderboards")}
+      />
 
       {/* Commute Tip Box */}
       <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-xs space-y-1.5">

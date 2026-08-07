@@ -1,4 +1,4 @@
-import type { Post, TrendingRoute, UnansweredQuestion, TopContributor, CommunityStat } from "@/types";
+import type { Post, TrendingRoute, UnansweredQuestion, TopContributor, CommunityStat, AppNotification } from "@/types";
 
 export const MOCK_POSTS: Post[] = [
   {
@@ -520,7 +520,62 @@ export const MOCK_TOP_CONTRIBUTORS: TopContributor[] = [
 ];
 
 export const MOCK_COMMUNITY_STATS: CommunityStat[] = [
-  { label: "Verified Answers", value: "4,820+", changeText: "+120 nitong linggo" },
-  { label: "Active Commuters", value: "18.5k", changeText: "Sa buong Pilipinas" },
-  { label: "Mapped Routes", value: "1,240", changeText: "Jeep, UV, LRT, TODA" },
+  { id: "cs-1", label: "Verified Answers", value: "4,820+", change: "+120 nitong linggo" },
+  { id: "cs-2", label: "Active Commuters", value: "18.5k", change: "Sa buong Pilipinas" },
+  { id: "cs-3", label: "Mapped Routes", value: "1,240", change: "Jeep, UV, LRT, TODA" },
+];
+
+export const MOCK_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: "notif-1",
+    type: "NEW_ANSWER",
+    title: "May bagong sagot sa tanong mo!",
+    body: "Nagsagot si Carlo Mendoza sa iyong tanong: 'Paano pumunta sa PITX galing SM Molino Cavite?'",
+    referenceId: "post-pinned-1",
+    isRead: false,
+    createdAt: "5m ago",
+    actor: {
+      name: "Carlo Mendoza",
+      avatarUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80",
+    },
+  },
+  {
+    id: "notif-2",
+    type: "ACCEPTED",
+    title: "In-accept ang sagot mo bilang Best Answer!",
+    body: "In-accept ni Maria Santos ang iyong sakayan route sa MRT-3 Cubao papuntang UP Diliman.",
+    referenceId: "post-2",
+    isRead: false,
+    createdAt: "25m ago",
+    actor: {
+      name: "Maria Santos",
+      avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+    },
+  },
+  {
+    id: "notif-3",
+    type: "UPVOTE",
+    title: "May nag-upvote sa gabay mo!",
+    body: "In-upvote ni Kenneth Tan ang ibinigay mong P2P bus guide sa One Ayala terminal.",
+    referenceId: "post-1",
+    isRead: false,
+    createdAt: "2h ago",
+    actor: {
+      name: "Kenneth Tan",
+      avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+    },
+  },
+  {
+    id: "notif-4",
+    type: "MENTION",
+    title: "Pinansin ka sa isang tanong sa komunidad",
+    body: "Nabanggit ka ni Bea Alcantara sa tanong tungkol sa Baguio Session Road jeepney TODA boundary.",
+    referenceId: "post-3",
+    isRead: true,
+    createdAt: "1d ago",
+    actor: {
+      name: "Bea Alcantara",
+      avatarUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
+    },
+  },
 ];
