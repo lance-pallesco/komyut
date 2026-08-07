@@ -21,6 +21,17 @@ export type PostStatus = "verified" | "answered" | "unanswered" | "pinned";
 
 export type FeedTab = "latest" | "trending" | "unanswered";
 
+export type TagType = "AREA" | "TRANSPORT" | "CUSTOM";
+
+export interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+  aliases: string[];
+  type: TagType;
+  usageCount: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -54,6 +65,7 @@ export interface Post {
   body: string;
   region: Region;
   transportModes: TransportMode[];
+  tags?: string[];
   answerCount: number;
   upvoteCount: number;
   bookmarkCount?: number;

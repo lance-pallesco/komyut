@@ -110,13 +110,22 @@ model Bookmark {
   @@map("bookmarks")
 }
 
-model Tag {
-  id        String    @id @default(uuid())
-  name      String    @unique // e.g. "Jeepney", "Bus", "MRT", "LRT-1", "LRT-2", "Tricycle", "Walk"
-  category  String    @default("transport_mode")
-  createdAt DateTime  @default(now())
+enum TagType {
+  AREA
+  TRANSPORT
+  CUSTOM
+}
 
-  posts     PostTag[]
+model Tag {
+  id         String    @id @default(uuid())
+  name       String    @unique
+  slug       String    @default("") @unique
+  aliases    String[]  @default([])
+  type       TagType   @default(TRANSPORT)
+  usageCount Int       @default(0) @map("usage_count")
+  createdAt  DateTime  @default(now())
+
+  posts      PostTag[]
 
   @@map("tags")
 }

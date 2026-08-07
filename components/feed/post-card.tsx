@@ -698,6 +698,20 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
             </div>
           )}
 
+          {postData.tags && postData.tags.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[11px] text-muted-foreground/70 font-medium pr-1">Tags:</span>
+              {postData.tags.map((tagName) => (
+                <span
+                  key={tagName}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/40 hover:bg-muted/90 transition-colors cursor-pointer"
+                >
+                  {tagName}
+                </span>
+              ))}
+            </div>
+          )}
+
           <div className="pt-3 border-t border-border/60 flex items-center justify-between text-xs sm:text-sm text-muted-foreground px-0.5 select-none">
             <div className="flex items-center gap-5 sm:gap-6">
               <LikeButton

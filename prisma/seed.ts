@@ -1,7 +1,7 @@
 import "dotenv/config";
-import { PrismaClient } from "../lib/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient, TagType } from "../lib/generated/prisma/client";
 
 function getPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -19,26 +19,54 @@ const prisma = getPrismaClient();
 async function main() {
   console.log("🌱 Starting KOMYUT database seed...");
 
-  // 1. Seed Transport Mode Tags
-  const transportTags = [
-    { name: "Jeepney", category: "transport_mode" },
-    { name: "Bus", category: "transport_mode" },
-    { name: "UV Express", category: "transport_mode" },
-    { name: "MRT-3", category: "transport_mode" },
-    { name: "LRT-1", category: "transport_mode" },
-    { name: "LRT-2", category: "transport_mode" },
-    { name: "Tricycle", category: "transport_mode" },
-    { name: "Walk", category: "transport_mode" },
+  // 1. Seed Canonical Tags (Transport, Area, Custom)
+  const canonicalTags: Array<{
+    name: string;
+    slug: string;
+    aliases: string[];
+    type: TagType;
+  }> = [
+    // Transport Modes
+    { name: "Jeepney", slug: "jeepney", aliases: ["Jeep", "Modern Jeep", "PUJ"], type: TagType.TRANSPORT },
+    { name: "Bus", slug: "bus", aliases: ["P2P", "EDSA Carousel", "City Bus"], type: TagType.TRANSPORT },
+    { name: "UV Express", slug: "uv-express", aliases: ["UV", "Van"], type: TagType.TRANSPORT },
+    { name: "MRT-3", slug: "mrt-3", aliases: ["MRT", "Metro Rail Transit"], type: TagType.TRANSPORT },
+    { name: "LRT-1", slug: "lrt-1", aliases: ["LRT 1", "LRT Line 1"], type: TagType.TRANSPORT },
+    { name: "LRT-2", slug: "lrt-2", aliases: ["LRT 2", "LRT Line 2"], type: TagType.TRANSPORT },
+    { name: "Tricycle", slug: "tricycle", aliases: ["TODA", "Trike"], type: TagType.TRANSPORT },
+    { name: "Walk", slug: "walk", aliases: ["Lakad", "Footpath"], type: TagType.TRANSPORT },
+
+    // Area & Landmark Locations
+    { name: "Quezon City", slug: "quezon-city", aliases: ["QC", "Q.C.", "Kyusi"], type: TagType.AREA },
+    { name: "BGC", slug: "bgc", aliases: ["Bonifacio Global City", "Fort Bonifacio", "Global City"], type: TagType.AREA },
+    { name: "UP Diliman", slug: "up-diliman", aliases: ["UPD", "UP Campus", "Diliman"], type: TagType.AREA },
+    { name: "SM North EDSA", slug: "sm-north-edsa", aliases: ["SMNE", "SM North", "North EDSA"], type: TagType.AREA },
+    { name: "Cubao", slug: "cubao", aliases: ["Araneta Center", "Cubao Terminal"], type: TagType.AREA },
+    { name: "Makati", slug: "makati", aliases: ["Ayala", "Makati CBD"], type: TagType.AREA },
+    { name: "Ortigas", slug: "ortigas", aliases: ["Ortigas Center", "Galleria"], type: TagType.AREA },
+
+    // Custom Context Tags
+    { name: "Late-Night", slug: "late-night", aliases: ["2 AM", "Madaling Araw", "Midnight", "Night Shift"], type: TagType.CUSTOM },
+    { name: "Rush-Hour", slug: "rush-hour", aliases: ["Peak Hour", "Traffic", "Heavy Traffic"], type: TagType.CUSTOM },
   ];
 
-  for (const tag of transportTags) {
+  for (const tag of canonicalTags) {
     await prisma.tag.upsert({
       where: { name: tag.name },
-      update: { category: tag.category },
-      create: tag,
+      update: {
+        slug: tag.slug,
+        aliases: tag.aliases,
+        type: tag.type,
+      },
+      create: {
+        name: tag.name,
+        slug: tag.slug,
+        aliases: tag.aliases,
+        type: tag.type,
+      },
     });
   }
-  console.log(`✅ Seeded ${transportTags.length} transport mode tags.`);
+  console.log(`✅ Seeded ${canonicalTags.length} canonical tags with aliases.`);
 
   // 2. Seed Demo Users
   const user1 = await prisma.user.upsert({

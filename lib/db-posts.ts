@@ -51,7 +51,12 @@ export async function getFeedPosts(userId?: string): Promise<Post[]> {
     }
 
     const formattedPosts: Post[] = dbPosts.map((p) => {
-      const transportModes = p.tags.map((t) => t.tag.name as any);
+      const transportModes = p.tags
+        .filter((t) => t.tag.type === "TRANSPORT" || !t.tag.type)
+        .map((t) => t.tag.name as any);
+      const customAndAreaTags = p.tags
+        .filter((t) => t.tag.type === "AREA" || t.tag.type === "CUSTOM")
+        .map((t) => t.tag.name);
       const comments: Comment[] = p.answers.map((ans) => ({
         id: ans.id,
         postId: ans.postId,
@@ -119,6 +124,7 @@ export async function getFeedPosts(userId?: string): Promise<Post[]> {
         body: p.body,
         region: p.region as any,
         transportModes: transportModes.length > 0 ? transportModes : ["Jeepney", "Bus"],
+        tags: customAndAreaTags,
         answerCount: p.answerCount || comments.length,
         upvoteCount: p.upvoteCount,
         userVoteState: votedPostIds.has(p.id) ? "up" : null,
