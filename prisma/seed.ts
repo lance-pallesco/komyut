@@ -24,8 +24,9 @@ async function main() {
     { name: "Jeepney", category: "transport_mode" },
     { name: "Bus", category: "transport_mode" },
     { name: "UV Express", category: "transport_mode" },
-    { name: "MRT", category: "transport_mode" },
-    { name: "LRT", category: "transport_mode" },
+    { name: "MRT-3", category: "transport_mode" },
+    { name: "LRT-1", category: "transport_mode" },
+    { name: "LRT-2", category: "transport_mode" },
     { name: "Tricycle", category: "transport_mode" },
     { name: "Walk", category: "transport_mode" },
   ];

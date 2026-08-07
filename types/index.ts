@@ -11,8 +11,9 @@ export type TransportMode =
   | "Jeepney"
   | "UV Express"
   | "Bus"
-  | "MRT"
-  | "LRT"
+  | "MRT-3"
+  | "LRT-1"
+  | "LRT-2"
   | "Tricycle"
   | "Walk";
 

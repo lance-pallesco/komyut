@@ -29,15 +29,20 @@ export const TRANSPORT_MODE_CONFIG: Record<
     iconName: "Bus",
     colorClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   },
-  MRT: {
-    label: "MRT",
+  "MRT-3": {
+    label: "MRT-3",
     iconName: "TrainFront",
     colorClass: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
   },
-  LRT: {
-    label: "LRT",
+  "LRT-1": {
+    label: "LRT-1",
     iconName: "Train",
     colorClass: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20",
+  },
+  "LRT-2": {
+    label: "LRT-2",
+    iconName: "Train",
+    colorClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
   Tricycle: {
     label: "Tricycle",

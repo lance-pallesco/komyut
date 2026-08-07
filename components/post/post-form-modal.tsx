@@ -18,8 +18,9 @@ export const TRANSPORT_TAGS: TransportMode[] = [
   "Jeepney",
   "Bus",
   "UV Express",
-  "MRT",
-  "LRT",
+  "MRT-3",
+  "LRT-1",
+  "LRT-2",
   "Tricycle",
   "Walk",
 ];
