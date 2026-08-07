@@ -580,9 +580,24 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
   const handleCommentUpvote = (commentId: string) => { };
 
   const sortedMotherComments = [...postComments].sort((a, b) => {
+    // Tier 1: Verified Best Answer first (pinned to top)
     if (a.isVerified && !b.isVerified) return -1;
     if (!a.isVerified && b.isVerified) return 1;
-    return b.upvoteCount - a.upvoteCount;
+
+    // Tier 2: Upvote count descending
+    if (b.upvoteCount !== a.upvoteCount) {
+      return b.upvoteCount - a.upvoteCount;
+    }
+
+    // Tier 3: Discussion engagement - Reply count descending
+    const aRepliesCount = a.replies?.length || 0;
+    const bRepliesCount = b.replies?.length || 0;
+    if (bRepliesCount !== aRepliesCount) {
+      return bRepliesCount - aRepliesCount;
+    }
+
+    // Tier 4: Created date descending (tiebreaker)
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   const topMotherComment = sortedMotherComments[0];
@@ -830,7 +845,7 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
                       type="text"
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Magbigay ng sagot..."
+                      placeholder="Write an answer..."
                       className="w-full bg-muted/40 hover:bg-muted/70 focus:bg-background text-xs sm:text-sm px-4 py-2.5 pr-12 rounded-full border border-border/80 focus:outline-none focus:border-primary/80 transition-all placeholder:text-muted-foreground/70"
                     />
                     <button

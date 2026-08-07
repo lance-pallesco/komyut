@@ -30,7 +30,11 @@ export async function getFeedPosts(userId?: string): Promise<Post[]> {
         },
         answers: {
           where: { parentId: null },
-          orderBy: { createdAt: "desc" },
+          orderBy: [
+            { isVerified: "desc" },
+            { upvoteCount: "desc" },
+            { createdAt: "desc" },
+          ],
           include: {
             author: true,
             replies: {
