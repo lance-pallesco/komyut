@@ -12,7 +12,7 @@ export function CommunityStats({ stats }: CommunityStatsProps) {
       <CardHeader className="pb-3 pt-4 px-4">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
           <Users2 className="w-3.5 h-3.5 text-primary" />
-          Komunidad Impact
+          Community Impact
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0">

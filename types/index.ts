@@ -11,14 +11,26 @@ export type TransportMode =
   | "Jeepney"
   | "UV Express"
   | "Bus"
-  | "MRT"
-  | "LRT"
+  | "MRT-3"
+  | "LRT-1"
+  | "LRT-2"
   | "Tricycle"
   | "Walk";
 
 export type PostStatus = "verified" | "answered" | "unanswered" | "pinned";
 
 export type FeedTab = "latest" | "trending" | "unanswered";
+
+export type TagType = "AREA" | "TRANSPORT" | "CUSTOM";
+
+export interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+  aliases: string[];
+  type: TagType;
+  usageCount: number;
+}
 
 export interface User {
   id: string;
@@ -53,6 +65,7 @@ export interface Post {
   body: string;
   region: Region;
   transportModes: TransportMode[];
+  tags?: string[];
   answerCount: number;
   upvoteCount: number;
   bookmarkCount?: number;
@@ -71,6 +84,15 @@ export interface TrendingRoute {
   destination: string;
   questionCount: number;
   region: Region;
+}
+
+export interface UnansweredQuestion {
+  id: string;
+  title: string;
+  origin: string;
+  destination: string;
+  region: Region;
+  createdAt: string;
 }
 
 export interface TopContributor {

@@ -1,16 +1,31 @@
 "use client";
 
 import { useState, useMemo, useTransition, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import type { FeedTab, Region, Post } from "@/types";
 import { MOCK_POSTS } from "@/lib/mock-data";
 import { toggleVoteAction, toggleBookmarkAction } from "@/app/actions/vote-actions";
 
 export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
-  const [activeTab, setActiveTab] = useState<FeedTab>("latest");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const urlQuery = searchParams.get("q") || "";
+  const urlTag = searchParams.get("tag") || "";
+  const urlSort = (searchParams.get("sort") as FeedTab) || "latest";
+
+  const [activeTab, setActiveTab] = useState<FeedTab>(urlSort);
   const [activeRegion, setActiveRegion] = useState<Region>("All Regions");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>(urlQuery);
+  const [activeTagFilter, setActiveTagFilter] = useState<string>(urlTag);
   const [posts, setPosts] = useState<Post[]>(initialPosts);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setSearchQuery(urlQuery);
+    setActiveTagFilter(urlTag);
+    if (urlSort) setActiveTab(urlSort);
+  }, [urlQuery, urlTag, urlSort]);
 
   useEffect(() => {
     if (initialPosts) {
@@ -18,9 +33,32 @@ export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
     }
   }, [initialPosts]);
 
+  const updateUrlParams = (newParams: { q?: string; tag?: string; sort?: string }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (newParams.q !== undefined) {
+      if (newParams.q.trim()) params.set("q", newParams.q.trim());
+      else params.delete("q");
+    }
+
+    if (newParams.tag !== undefined) {
+      if (newParams.tag.trim()) params.set("tag", newParams.tag.trim());
+      else params.delete("tag");
+    }
+
+    if (newParams.sort !== undefined) {
+      if (newParams.sort && newParams.sort !== "latest") params.set("sort", newParams.sort);
+      else params.delete("sort");
+    }
+
+    const queryString = params.toString();
+    router.push(queryString ? `/feed?${queryString}` : "/feed");
+  };
+
   const handleTabChange = (tab: FeedTab) => {
     startTransition(() => {
       setActiveTab(tab);
+      updateUrlParams({ sort: tab });
     });
   };
 
@@ -33,6 +71,21 @@ export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
   const handleSearchChange = (query: string) => {
     startTransition(() => {
       setSearchQuery(query);
+    });
+  };
+
+  const handleTagFilterChange = (tag: string) => {
+    startTransition(() => {
+      setActiveTagFilter(tag);
+      updateUrlParams({ tag });
+    });
+  };
+
+  const clearSearch = () => {
+    startTransition(() => {
+      setSearchQuery("");
+      setActiveTagFilter("");
+      updateUrlParams({ q: "", tag: "" });
     });
   };
 
@@ -88,13 +141,31 @@ export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
         const matchesDest = post.destination.toLowerCase().includes(q);
         const matchesBody = post.body.toLowerCase().includes(q);
         const matchesAuthor = post.author.name.toLowerCase().includes(q);
-        if (!matchesOrigin && !matchesDest && !matchesBody && !matchesAuthor) {
+        const matchesTitle = post.title.toLowerCase().includes(q);
+        const matchesAnswer = post.comments?.some((c) => c.body.toLowerCase().includes(q));
+
+        if (
+          !matchesOrigin &&
+          !matchesDest &&
+          !matchesBody &&
+          !matchesAuthor &&
+          !matchesTitle &&
+          !matchesAnswer
+        ) {
           return false;
         }
       }
 
-      if (activeTab === "unanswered") {
-        return post.answerCount === 0 || post.status === "unanswered";
+      if (activeTagFilter.trim() !== "") {
+        const tagQ = activeTagFilter.toLowerCase();
+        const hasTag =
+          post.tags?.some((t) => t.toLowerCase() === tagQ) ||
+          post.transportModes?.some((m) => m.toLowerCase() === tagQ);
+        if (!hasTag) return false;
+      }
+
+      if (activeTab === "unanswered" || urlSort === "unanswered") {
+        return (post.answerCount || 0) < 1 && (!post.comments || post.comments.length < 1);
       }
 
       return true;
@@ -108,17 +179,20 @@ export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
 
       return 0;
     });
-  }, [posts, activeRegion, searchQuery, activeTab]);
+  }, [posts, activeRegion, searchQuery, activeTagFilter, activeTab]);
 
   return {
     activeTab,
     activeRegion,
     searchQuery,
+    activeTagFilter,
     filteredPosts,
     isLoading: isPending,
     handleTabChange,
     handleRegionChange,
     handleSearchChange,
+    handleTagFilterChange,
+    clearSearch,
     handleVote,
     handleBookmark,
   };

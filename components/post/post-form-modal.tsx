@@ -18,8 +18,9 @@ export const TRANSPORT_TAGS: TransportMode[] = [
   "Jeepney",
   "Bus",
   "UV Express",
-  "MRT",
-  "LRT",
+  "MRT-3",
+  "LRT-1",
+  "LRT-2",
   "Tricycle",
   "Walk",
 ];
@@ -190,12 +191,12 @@ export function PostFormModal({
             </Avatar>
             <div className="space-y-0.5">
               <h4 className="text-xs sm:text-sm font-bold text-foreground leading-none">{userName}</h4>
-              <div className="flex items-center gap-1.5 pt-0.5">
+              {/* <div className="flex items-center gap-1.5 pt-0.5">
                 <Badge variant="outline" className="text-[10px] font-semibold gap-1 py-0 px-2 bg-muted/60 text-muted-foreground border-border">
                   <Globe className="w-3 h-3 text-emerald-500" />
                   <span>Public group</span>
                 </Badge>
-              </div>
+              </div> */}
             </div>
           </div>
 

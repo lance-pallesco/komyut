@@ -78,7 +78,14 @@ export function Navbar({ searchQuery, onSearchChange }: NavbarProps) {
         </div>
 
         {/* Global Live Search Bar */}
-        <div className="flex-1 max-w-xl mx-2">
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (searchQuery.trim()) {
+            window.location.href = `/feed?q=${encodeURIComponent(searchQuery.trim())}`;
+          } else {
+            window.location.href = "/feed";
+          }
+        }} className="flex-1 max-w-xl mx-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -89,7 +96,7 @@ export function Navbar({ searchQuery, onSearchChange }: NavbarProps) {
               className="pl-9 pr-4 h-10 text-xs sm:text-sm bg-muted/40 focus-visible:bg-background border-border/80 rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary"
             />
           </div>
-        </div>
+        </form>
 
         {/* Header Right Action Area */}
         <div className="flex items-center gap-2 shrink-0">

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { generateAutoTagsAction } from "./ai-actions";
 
 export interface CreatePostInput {
   title: string;
@@ -60,16 +61,20 @@ export async function createPostAction(input: CreatePostInput) {
       },
     });
 
-    if (selectedTagNames.length > 0) {
-      const tags = await prisma.tag.findMany({
-        where: { name: { in: selectedTagNames } },
-      });
+    const autoTagResult = await generateAutoTagsAction(
+      title.trim(),
+      body.trim(),
+      origin.trim(),
+      destination.trim(),
+      selectedTagNames
+    );
 
-      for (const tag of tags) {
+    if (autoTagResult.tagIds.length > 0) {
+      for (const tagId of autoTagResult.tagIds) {
         await prisma.postTag.create({
           data: {
             postId: post.id,
-            tagId: tag.id,
+            tagId,
           },
         });
       }

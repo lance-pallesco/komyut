@@ -580,9 +580,24 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
   const handleCommentUpvote = (commentId: string) => { };
 
   const sortedMotherComments = [...postComments].sort((a, b) => {
+    // Tier 1: Verified Best Answer first (pinned to top)
     if (a.isVerified && !b.isVerified) return -1;
     if (!a.isVerified && b.isVerified) return 1;
-    return b.upvoteCount - a.upvoteCount;
+
+    // Tier 2: Upvote count descending
+    if (b.upvoteCount !== a.upvoteCount) {
+      return b.upvoteCount - a.upvoteCount;
+    }
+
+    // Tier 3: Discussion engagement - Reply count descending
+    const aRepliesCount = a.replies?.length || 0;
+    const bRepliesCount = b.replies?.length || 0;
+    if (bRepliesCount !== aRepliesCount) {
+      return bRepliesCount - aRepliesCount;
+    }
+
+    // Tier 4: Created date descending (tiebreaker)
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   const topMotherComment = sortedMotherComments[0];
@@ -679,6 +694,24 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
               <span className="text-[11px] text-muted-foreground/70 font-medium pr-1">Modes:</span>
               {postData.transportModes.map((mode) => (
                 <TransportBadge key={mode} mode={mode} />
+              ))}
+            </div>
+          )}
+
+          {postData.tags && postData.tags.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[11px] text-muted-foreground/70 font-medium pr-1">Tags:</span>
+              {postData.tags.map((tagName) => (
+                <span
+                  key={tagName}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/feed?tag=${encodeURIComponent(tagName)}`);
+                  }}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/40 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors cursor-pointer"
+                >
+                  {tagName}
+                </span>
               ))}
             </div>
           )}
@@ -830,7 +863,7 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
                       type="text"
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Magbigay ng sagot..."
+                      placeholder="Write an answer..."
                       className="w-full bg-muted/40 hover:bg-muted/70 focus:bg-background text-xs sm:text-sm px-4 py-2.5 pr-12 rounded-full border border-border/80 focus:outline-none focus:border-primary/80 transition-all placeholder:text-muted-foreground/70"
                     />
                     <button

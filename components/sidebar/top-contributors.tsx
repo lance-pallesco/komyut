@@ -1,28 +1,24 @@
 import type { TopContributor } from "@/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Award, CheckCircle2 } from "lucide-react";
+import { Award, CheckCircle2, ChevronRight } from "lucide-react";
 import { formatNumber } from "@/lib/formatters";
 
 interface TopContributorsProps {
   contributors: TopContributor[];
+  onSeeAll?: () => void;
 }
 
-export function TopContributors({ contributors }: TopContributorsProps) {
+export function TopContributors({ contributors, onSeeAll }: TopContributorsProps) {
   return (
     <Card className="border-border/60 shadow-2xs">
       <CardHeader className="pb-2.5 pt-4 px-4">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Award className="w-3.5 h-3.5 text-amber-500" />
-            Top Route Contributors
-          </span>
-          <span className="text-[10px] text-primary lowercase hover:underline cursor-pointer">
-            See all
-          </span>
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+          <Award className="w-3.5 h-3.5 text-amber-500" />
+          <span>Top Route Contributors</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
+      <CardContent className="px-4 pb-3 pt-0">
         <ol className="space-y-3">
           {contributors.slice(0, 5).map((tc) => {
             const initials = tc.user.name
@@ -68,6 +64,18 @@ export function TopContributors({ contributors }: TopContributorsProps) {
           })}
         </ol>
       </CardContent>
+      {onSeeAll && (
+        <div className="border-t border-border/50 px-4 py-2.5 bg-muted/20 rounded-b-xl">
+          <button
+            type="button"
+            onClick={onSeeAll}
+            className="w-full text-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1 group cursor-pointer"
+          >
+            <span>See top contributors</span>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:translate-x-0.5 group-hover:text-foreground transition-transform" />
+          </button>
+        </div>
+      )}
     </Card>
   );
 }
