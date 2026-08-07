@@ -60,7 +60,6 @@ export const NAV_ITEMS = [
   { id: "home", label: "Feed Homepage", icon: "Home", href: "/", active: true },
   { id: "saved", label: "Saved Routes", icon: "Bookmark", href: "#" },
   { id: "my-questions", label: "My Questions", icon: "HelpCircle", href: "#" },
-  { id: "contributors", label: "Top Contributors", icon: "Award", href: "#" },
   { id: "guidelines", label: "Community Rules", icon: "ShieldCheck", href: "#" },
 ];
 

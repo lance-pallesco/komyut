@@ -19,7 +19,7 @@ export function TrendingRoutes({ routes, onRouteClick, onSeeAll }: TrendingRoute
       </CardHeader>
       <CardContent className="px-4 pb-3 pt-0">
         <ul className="space-y-2.5">
-          {routes.slice(0, 5).map((route) => (
+          {routes.slice(0, 4).map((route) => (
             <li key={route.id}>
               <button
                 type="button"

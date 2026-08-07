@@ -23,7 +23,7 @@ export function UnansweredQuestions({
       </CardHeader>
       <CardContent className="px-4 pb-3 pt-0">
         <ul className="space-y-2.5">
-          {questions.slice(0, 4).map((q) => (
+          {questions.slice(0, 3).map((q) => (
             <li key={q.id}>
               <button
                 type="button"
