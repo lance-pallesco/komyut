@@ -11,11 +11,11 @@ import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/co
 import { LeftSidebar } from "./left-sidebar";
 
 interface NavbarProps {
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
-export function Navbar({ searchQuery, onSearchChange }: NavbarProps) {
+export function Navbar({ searchQuery = "", onSearchChange }: NavbarProps) {
   const { data: session, status } = useSession();
 
   return (
@@ -91,7 +91,7 @@ export function Navbar({ searchQuery, onSearchChange }: NavbarProps) {
             <Input
               type="text"
               value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={(e) => onSearchChange?.(e.target.value)}
               placeholder="Maghanap ng biyahe, landmark, o jeep route... (e.g. BGC, Cubao)"
               className="pl-9 pr-4 h-10 text-xs sm:text-sm bg-muted/40 focus-visible:bg-background border-border/80 rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary"
             />
