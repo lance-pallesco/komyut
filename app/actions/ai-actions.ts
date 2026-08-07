@@ -89,6 +89,7 @@ export async function generateAutoTagsAction(
 Analyze raw commuter questions and extract canonical tags with their correct category type ("AREA", "TRANSPORT", or "CUSTOM").
 Examples:
 - "QC", "Kyusi" -> { "name": "Quezon City", "type": "AREA" }
+- "PITX", "Parañaque Integrated Terminal Exchange" -> { "name": "PITX", "type": "AREA" }
 - "Fairview" -> { "name": "Fairview", "type": "AREA" }
 - "BGC" -> { "name": "BGC", "type": "AREA" }
 - "UPD", "UP Campus" -> { "name": "UP Diliman", "type": "AREA" }
@@ -143,6 +144,7 @@ Return ONLY a JSON array of objects with "name" and "type". Example: [{"name": "
   // 3. Fallback Local Regex & Dictionary Lookup (Guarantees zero failure if AI is offline)
   const localKeywords: Array<{ pattern: RegExp; canonical: string; type: TagType }> = [
     { pattern: /\b(qc|q\.c\.|kyusi|quezon city)\b/i, canonical: "Quezon City", type: "AREA" },
+    { pattern: /\b(pitx|parañaque integrated terminal exchange|paranaque integrated terminal exchange)\b/i, canonical: "PITX", type: "AREA" },
     { pattern: /\b(bgc|fort bonifacio|global city)\b/i, canonical: "BGC", type: "AREA" },
     { pattern: /\b(upd|up campus|diliman)\b/i, canonical: "UP Diliman", type: "AREA" },
     { pattern: /\b(smne|sm north|north edsa)\b/i, canonical: "SM North EDSA", type: "AREA" },

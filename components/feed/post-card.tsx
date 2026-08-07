@@ -704,7 +704,11 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
               {postData.tags.map((tagName) => (
                 <span
                   key={tagName}
-                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/40 hover:bg-muted/90 transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/feed?tag=${encodeURIComponent(tagName)}`);
+                  }}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/40 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors cursor-pointer"
                 >
                   {tagName}
                 </span>

@@ -52,6 +52,7 @@ export async function createAnswerAction(input: CreateAnswerInput) {
       where: { id: postId },
       data: {
         answerCount: { increment: 1 },
+        status: "answered",
       },
     });
 
@@ -86,11 +87,16 @@ export async function deleteAnswerAction(answerId: string) {
     await prisma.answer.delete({
       where: { id: answerId },
     });
+    
+    const remainingAnswerCount = await prisma.answer.count({
+      where: { postId: existingAnswer.postId },
+    });
 
     await prisma.post.update({
       where: { id: existingAnswer.postId },
       data: {
-        answerCount: { decrement: 1 },
+        answerCount: remainingAnswerCount,
+        status: remainingAnswerCount < 1 ? "unanswered" : "answered",
       },
     });
 

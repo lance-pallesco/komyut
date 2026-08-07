@@ -86,6 +86,15 @@ export interface TrendingRoute {
   region: Region;
 }
 
+export interface UnansweredQuestion {
+  id: string;
+  title: string;
+  origin: string;
+  destination: string;
+  region: Region;
+  createdAt: string;
+}
+
 export interface TopContributor {
   id: string;
   user: User;

@@ -1,8 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { MOCK_POSTS } from "@/lib/mock-data";
+import { resolveTagByKeyword } from "@/lib/tag-service";
 import type { Post, Comment } from "@/types";
 
-export async function getFeedPosts(userId?: string): Promise<Post[]> {
+export interface GetFeedPostsOptions {
+  userId?: string;
+  query?: string;
+  tagFilter?: string;
+  sort?: "relevant" | "latest" | "most_voted" | "unanswered";
+  region?: string;
+}
+
+export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): Promise<Post[]> {
+  const opts: GetFeedPostsOptions =
+    typeof options === "string" ? { userId: options } : options;
+
+  const { userId, query, tagFilter, sort = "latest", region } = opts;
+
   try {
     const userVotes = userId
       ? await prisma.vote.findMany({ where: { userId } })
@@ -21,8 +35,73 @@ export async function getFeedPosts(userId?: string): Promise<Post[]> {
       userBookmarks.map((b) => b.postId)
     );
 
+    // Build Prisma `where` clause dynamically
+    const whereClause: any = {};
+
+    // 1. Region Filter
+    if (region && region !== "All Regions") {
+      whereClause.region = { equals: region, mode: "insensitive" };
+    }
+
+    // 2. Tag Filter (Canonical & Aliases)
+    if (tagFilter && tagFilter.trim()) {
+      const cleanTag = tagFilter.trim();
+      const canonicalTag = await resolveTagByKeyword(cleanTag);
+      const targetTagName = canonicalTag ? canonicalTag.name : cleanTag;
+
+      whereClause.tags = {
+        some: {
+          tag: {
+            OR: [
+              { name: { equals: targetTagName, mode: "insensitive" } },
+              { slug: { equals: cleanTag.toLowerCase() } },
+              { aliases: { has: cleanTag } },
+            ],
+          },
+        },
+      };
+    }
+
+    // 3. Keyword Search across Title, Body, Origin, Destination & Answers.body
+    if (query && query.trim()) {
+      const q = query.trim();
+      const canonicalTag = await resolveTagByKeyword(q);
+
+      const searchConditions: any[] = [
+        { title: { contains: q, mode: "insensitive" } },
+        { body: { contains: q, mode: "insensitive" } },
+        { origin: { contains: q, mode: "insensitive" } },
+        { destination: { contains: q, mode: "insensitive" } },
+        { answers: { some: { body: { contains: q, mode: "insensitive" } } } },
+      ];
+
+      if (canonicalTag) {
+        searchConditions.push({
+          tags: {
+            some: {
+              tagId: canonicalTag.id,
+            },
+          },
+        });
+      }
+
+      whereClause.OR = searchConditions;
+    }
+
+    // 4. Sorting Options
+    let orderByClause: any = { createdAt: "desc" };
+    if (sort === "most_voted") {
+      orderByClause = [{ upvoteCount: "desc" }, { createdAt: "desc" }];
+    } else if (sort === "relevant" && query) {
+      orderByClause = [{ answerCount: "desc" }, { upvoteCount: "desc" }, { createdAt: "desc" }];
+    } else if (sort === "unanswered") {
+      whereClause.answerCount = { lt: 1 };
+      orderByClause = [{ createdAt: "desc" }];
+    }
+
     const dbPosts = await prisma.post.findMany({
-      orderBy: { createdAt: "desc" },
+      where: whereClause,
+      orderBy: orderByClause,
       include: {
         author: true,
         tags: {
@@ -47,6 +126,10 @@ export async function getFeedPosts(userId?: string): Promise<Post[]> {
     });
 
     if (!dbPosts || dbPosts.length === 0) {
+      // If user performed an active search query or tag filter, return empty array for 0 matches
+      if ((query && query.trim()) || (tagFilter && tagFilter.trim())) {
+        return [];
+      }
       return MOCK_POSTS;
     }
 

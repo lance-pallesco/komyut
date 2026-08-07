@@ -43,6 +43,8 @@ async function main() {
     { name: "SM North EDSA", slug: "sm-north-edsa", aliases: ["SMNE", "SM North", "North EDSA"], type: TagType.AREA },
     { name: "Cubao", slug: "cubao", aliases: ["Araneta Center", "Cubao Terminal"], type: TagType.AREA },
     { name: "Makati", slug: "makati", aliases: ["Ayala", "Makati CBD"], type: TagType.AREA },
+    { name: "PITX", slug: "pitx", aliases: ["Parañaque Integrated Terminal Exchange", "Paranaque Integrated Terminal Exchange", "Paranaque Terminal"], type: TagType.AREA },
+    { name: "Parañaque", slug: "paranaque", aliases: ["Paranaque", "Pque", "Parañaque City"], type: TagType.AREA },
     { name: "Ortigas", slug: "ortigas", aliases: ["Ortigas Center", "Galleria"], type: TagType.AREA },
 
     // Custom Context Tags

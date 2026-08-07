@@ -1,16 +1,24 @@
 import { prisma } from "@/lib/prisma";
 
+/**
+ * Clean slugify helper handling Filipino special characters like 'ñ' / 'Ñ'
+ * Example: "Parañaque Integrated Terminal Exchange" -> "paranaque-integrated-terminal-exchange"
+ */
 export function slugify(text: string): string {
   return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ñ/gi, "n")
     .toLowerCase()
     .trim()
-    .replace(/[\s\W-]+/g, "-")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[\s-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
 
 /**
- * Resolves raw user slang, abbreviations, or keywords to Canonical Tag
- * Example: "QC" -> Tag("Quezon City"), "UPD" -> Tag("UP Diliman")
+ * Resolves raw user slang, abbreviations, or full names to Canonical Tag
+ * Example: "Parañaque Integrated Terminal Exchange" -> Tag("PITX")
  */
 export async function resolveTagByKeyword(keyword: string) {
   if (!keyword || !keyword.trim()) return null;
@@ -45,13 +53,14 @@ export async function resolveTagByKeyword(keyword: string) {
     return tagsWithAlias[0];
   }
 
-  // 4. Case-Insensitive Fallback Lookup
+  // 4. Case-Insensitive & Normalized Fallback Lookup
   const fallbackTags = await prisma.tag.findMany({
     where: {
       OR: [
         { name: { equals: cleanKeyword, mode: "insensitive" } },
         { aliases: { has: cleanKeyword.toUpperCase() } },
         { aliases: { has: cleanKeyword.toLowerCase() } },
+        { slug: { equals: slugified } },
       ],
     },
   });

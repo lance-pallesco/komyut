@@ -1,4 +1,4 @@
-import type { Post, TrendingRoute, TopContributor, CommunityStat } from "@/types";
+import type { Post, TrendingRoute, UnansweredQuestion, TopContributor, CommunityStat } from "@/types";
 
 export const MOCK_POSTS: Post[] = [
   {
@@ -427,6 +427,41 @@ export const MOCK_TRENDING_ROUTES: TrendingRoute[] = [
   { id: "tr-3", origin: "Alabang South Station", destination: "Ayala Triangle Makati", questionCount: 84, region: "Metro Manila" },
   { id: "tr-4", origin: "Mactan Airport", destination: "Cebu IT Park", questionCount: 65, region: "Cebu" },
   { id: "tr-5", origin: "Fairview Market", destination: "Eastwood City Libis", questionCount: 52, region: "Metro Manila" },
+];
+
+export const MOCK_UNANSWERED_QUESTIONS: UnansweredQuestion[] = [
+  {
+    id: "uq-1",
+    title: "UST España papuntang PUP Sta. Mesa via jeep o tricycle?",
+    origin: "UST España, Manila",
+    destination: "PUP Main Campus, Sta. Mesa",
+    region: "Metro Manila",
+    createdAt: "13m ago",
+  },
+  {
+    id: "uq-2",
+    title: "Trinoma papuntang Venice Grand Canal Mall sa McKinley Hill?",
+    origin: "Trinoma, Quezon City",
+    destination: "McKinley Hill, Taguig",
+    region: "Metro Manila",
+    createdAt: "17m ago",
+  },
+  {
+    id: "uq-3",
+    title: "Saan ang sakayan ng P2P bus mula Katipunan papuntang One Ayala?",
+    origin: "Katipunan Avenue",
+    destination: "One Ayala, Makati",
+    region: "Metro Manila",
+    createdAt: "25m ago",
+  },
+  {
+    id: "uq-4",
+    title: "Paano mag-commute mula Colon Street papuntang SM Seaside Cebu?",
+    origin: "Colon Street, Cebu",
+    destination: "SM Seaside City Cebu",
+    region: "Cebu",
+    createdAt: "42m ago",
+  },
 ];
 
 export const MOCK_TOP_CONTRIBUTORS: TopContributor[] = [

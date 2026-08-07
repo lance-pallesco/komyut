@@ -13,13 +13,14 @@ interface FeedLayoutProps {
 
 export function FeedLayout({ filterHook }: FeedLayoutProps) {
   const {
-    activeTab,
     activeRegion,
+    searchQuery,
+    activeTagFilter,
     filteredPosts,
     isLoading,
-    handleTabChange,
     handleRegionChange,
     handleSearchChange,
+    handleTagFilterChange,
     handleVote,
     handleBookmark,
   } = filterHook;
@@ -33,9 +34,16 @@ export function FeedLayout({ filterHook }: FeedLayoutProps) {
 
         <main className="col-span-1 md:col-span-8 lg:col-span-6 space-y-4">
           <CreatePostBox />
+          <RegionFilter
+            activeRegion={activeRegion}
+            onRegionChange={handleRegionChange}
+            activeTagFilter={activeTagFilter}
+            onClearTag={() => handleTagFilterChange("")}
+          />
           <PostList
             posts={filteredPosts}
             isLoading={isLoading}
+            searchQuery={searchQuery}
             onVote={handleVote}
             onBookmark={handleBookmark}
           />

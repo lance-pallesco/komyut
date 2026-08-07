@@ -7,9 +7,9 @@ export function MobileBottomNav() {
   const items = [
     { label: "Home", icon: Home, active: true },
     { label: "Saved", icon: Bookmark, active: false },
-    { label: "Tanong", icon: PlusCircle, active: false, isCta: true },
+    { label: "Post", icon: PlusCircle, active: false, isCta: true },
     { label: "Top Users", icon: Award, active: false },
-    { label: "Tulong", icon: HelpCircle, active: false },
+    { label: "Ask", icon: HelpCircle, active: false },
   ];
 
   return (
