@@ -61,7 +61,7 @@ export function LandingFeaturesBar() {
             href="/feed"
             className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm inline-flex items-center gap-1.5 transition-all shadow-md shrink-0"
           >
-            <span>Jump straight to /feed</span>
+            <span>Jump straight to feed</span>
             <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>

@@ -43,6 +43,7 @@ import { deletePostAction, toggleCommentingAction } from "@/app/actions/post-act
 import { toggleAnswerVoteAction } from "@/app/actions/vote-actions";
 import { ConfirmModal } from "@/components/shared/confirm-modal";
 import { LikeButton } from "@/components/shared/like-button";
+import { AdaptiveCommentInput } from "@/components/post/adaptive-comment-input";
 import { PostFormModal } from "@/components/post/post-form-modal";
 
 interface PostCardProps {
@@ -848,33 +849,17 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
                   Commenting has been turned off by the post author.
                 </div>
               ) : (
-                <form onSubmit={handleCommentSubmit} className="pt-2 flex items-center gap-2.5">
-                  <Avatar className="h-8 w-8 border border-border shrink-0">
-                    <AvatarImage
-                      src={currentUserImage}
-                      alt={currentUserName}
-                    />
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary font-bold">
-                      {currentUserInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 relative flex items-center">
-                    <input
-                      type="text"
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Write an answer..."
-                      className="w-full bg-muted/40 hover:bg-muted/70 focus:bg-background text-xs sm:text-sm px-4 py-2.5 pr-12 rounded-full border border-border/80 focus:outline-none focus:border-primary/80 transition-all placeholder:text-muted-foreground/70"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!newComment.trim()}
-                      className="absolute right-3 p-1 text-primary disabled:opacity-40"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </div>
-                </form>
+                <div className="pt-2">
+                  <AdaptiveCommentInput
+                    value={newComment}
+                    onChange={setNewComment}
+                    onSubmit={handleCommentSubmit}
+                    userImage={currentUserImage}
+                    userName={currentUserName}
+                    placeholder="Write an answer or commute route guide..."
+                    submitButtonText="Post Answer"
+                  />
+                </div>
               )}
             </>
           )}

@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Search, PlusCircle, Menu, LogOut, User } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { LeftSidebar } from "./left-sidebar";
+import { NotificationPopover } from "./notification-popover";
 
 interface NavbarProps {
   searchQuery?: string;
@@ -38,7 +39,7 @@ export function Navbar({ searchQuery = "", onSearchChange }: NavbarProps) {
             />
             <SheetContent side="left" className="w-72 p-0">
               <SheetHeader className="p-4 border-b border-border text-left">
-                <SheetTitle className="flex items-center gap-2 text-primary font-black">
+                <SheetTitle className="flex items-center gap-2 font-black">
                   <Image
                     src="/logo.png"
                     alt="KOMYUT Logo"
@@ -57,7 +58,7 @@ export function Navbar({ searchQuery = "", onSearchChange }: NavbarProps) {
 
           <Link
             href="/"
-            className="flex items-center gap-2 group transition-opacity hover:opacity-90"
+            className="hidden sm:flex items-center gap-2 group transition-opacity hover:opacity-90"
           >
             <Image
               src="/logo.png"
@@ -102,10 +103,7 @@ export function Navbar({ searchQuery = "", onSearchChange }: NavbarProps) {
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
 
-          <Button size="sm" className="hidden sm:inline-flex gap-1.5 font-semibold rounded-full shadow-sm">
-            <PlusCircle className="w-4 h-4" />
-            <span>Magtanong</span>
-          </Button>
+          <NotificationPopover />
 
           {status === "authenticated" && session?.user ? (
             <div className="flex items-center gap-2 border-l border-border pl-2 ml-1">
