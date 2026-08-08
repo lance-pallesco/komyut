@@ -7,8 +7,10 @@ import { RightSidebar } from "@/components/layout/right-sidebar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, ShieldCheck, Share2, ArrowRight, Copy } from "lucide-react";
+import { MapPin, ShieldCheck, Share2, ArrowRight, Copy, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { formatJoinedDate } from "@/lib/formatters";
+import { getCurrentUrl, copyToClipboard } from "@/lib/utils";
 
 interface PublicProfileClientContainerProps {
   user: {
@@ -21,6 +23,7 @@ interface PublicProfileClientContainerProps {
     homeArea: string | null;
     reputationPoints: number;
     verifiedAnswersCount: number;
+    createdAt?: string;
   };
 }
 
@@ -33,9 +36,9 @@ export function PublicProfileClientContainer({ user }: PublicProfileClientContai
     user.avatarUrl ||
     "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
 
-  const handleShareProfile = () => {
-    const uniqueShareUrl = window.location.href;
-    navigator.clipboard.writeText(uniqueShareUrl);
+  const handleShareProfile = async () => {
+    const uniqueShareUrl = getCurrentUrl();
+    await copyToClipboard(uniqueShareUrl);
     toast.success("Profile link copied to clipboard!", {
       description: uniqueShareUrl,
       icon: <Copy className="w-4 h-4 text-emerald-500" />,
@@ -118,12 +121,18 @@ export function PublicProfileClientContainer({ user }: PublicProfileClientContai
                 <p className="text-xs font-semibold text-muted-foreground">
                   {userHandle}
                 </p>
-                {user.homeArea && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>{user.homeArea}</span>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 flex-wrap">
+                  {user.homeArea && (
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>{user.homeArea}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span>{formatJoinedDate(user.createdAt)}</span>
                   </div>
-                )}
+                </div>
                 {user.bio && (
                   <p className="text-xs text-muted-foreground leading-relaxed pt-1 italic">
                     "{user.bio}"

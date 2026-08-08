@@ -36,7 +36,7 @@ import {
   MessageSquareOff,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getCurrentUrl, copyToClipboard } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { createAnswerAction, deleteAnswerAction } from "@/app/actions/answer-actions";
@@ -442,10 +442,9 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
     toast.success(nextState ? "Post saved to bookmarks!" : "Post removed from bookmarks");
   };
 
-  const handleShareLink = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText?.(window.location.href);
-    }
+  const handleShareLink = async () => {
+    const url = getCurrentUrl();
+    await copyToClipboard(url);
     toast.success("Direct link copied to clipboard!");
   };
 

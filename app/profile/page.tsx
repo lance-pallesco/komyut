@@ -56,6 +56,7 @@ export default async function ProfilePage() {
     homeArea: dbUser.homeArea,
     reputationPoints: dbUser.reputationPoints,
     verifiedAnswersCount: dbUser.verifiedAnswersCount,
+    createdAt: dbUser.createdAt.toISOString(),
   };
 
   return <ProfileClientContainer initialUser={initialUser} />;

@@ -35,6 +35,7 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
     homeArea: user.homeArea,
     reputationPoints: user.reputationPoints,
     verifiedAnswersCount: user.verifiedAnswersCount,
+    createdAt: user.createdAt.toISOString(),
   };
 
   return <PublicProfileClientContainer user={publicUserData} />;

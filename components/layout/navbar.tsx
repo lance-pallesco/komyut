@@ -16,7 +16,10 @@ interface NavbarProps {
   onSearchChange?: (query: string) => void;
 }
 
+import { useRouter } from "next/navigation";
+
 export function Navbar({ searchQuery = "", onSearchChange }: NavbarProps) {
+  const router = useRouter();
   const { data: session, status } = useSession();
 
   return (
@@ -82,9 +85,9 @@ export function Navbar({ searchQuery = "", onSearchChange }: NavbarProps) {
         <form onSubmit={(e) => {
           e.preventDefault();
           if (searchQuery.trim()) {
-            window.location.href = `/feed?q=${encodeURIComponent(searchQuery.trim())}`;
+            router.push(`/feed?q=${encodeURIComponent(searchQuery.trim())}`);
           } else {
-            window.location.href = "/feed";
+            router.push("/feed");
           }
         }} className="flex-1 max-w-xl mx-2">
           <div className="relative">

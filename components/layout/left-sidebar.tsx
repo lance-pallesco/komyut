@@ -8,6 +8,7 @@ import { Home, User, Bookmark, HelpCircle, Award, ShieldCheck, Sparkles, Chevron
 import { cn } from "@/lib/utils";
 import { TopContributors } from "@/components/sidebar/top-contributors";
 import { MOCK_TOP_CONTRIBUTORS } from "@/lib/mock-data";
+import { useUserProfile } from "@/components/providers/user-profile-provider";
 import { getUserProfileAction } from "@/app/actions/user-actions";
 
 const ICON_MAP = {
@@ -31,63 +32,51 @@ interface LeftSidebarProps {
 export function LeftSidebar({ profileData: propProfile }: LeftSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
+  const { profile: contextProfile } = useUserProfile();
 
   const user = session?.user;
 
-  // Local live profile state for instant reflection
+  // Local live profile state synced via propProfile, contextProfile, or session/DB
   const [liveProfile, setLiveProfile] = useState({
-    name: propProfile?.name || user?.name || "Kōshi Sugawara",
-    username: propProfile?.username || (user as any)?.username || "kshisugawara9553",
-    avatarUrl: propProfile?.avatarUrl || user?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-    coverUrl: propProfile?.coverUrl || "",
+    name: propProfile?.name || contextProfile?.name || user?.name || "Kōshi Sugawara",
+    username: propProfile?.username || contextProfile?.username || (user as any)?.username || "kshisugawara9553",
+    avatarUrl: propProfile?.avatarUrl || contextProfile?.avatarUrl || user?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    coverUrl: propProfile?.coverUrl || contextProfile?.coverUrl || "",
   });
 
-  // Sync propProfile immediately when prop changes on /profile page
+  // Sync with contextProfile or propProfile changes reactively
   useEffect(() => {
-    if (propProfile) {
-      setLiveProfile({
-        name: propProfile.name || liveProfile.name,
-        username: propProfile.username || liveProfile.username,
-        avatarUrl: propProfile.avatarUrl || liveProfile.avatarUrl,
-        coverUrl: propProfile.coverUrl ?? liveProfile.coverUrl,
-      });
+    const active = propProfile || contextProfile;
+    if (active) {
+      setLiveProfile((prev) => ({
+        ...prev,
+        ...(active.name ? { name: active.name } : {}),
+        ...(active.username ? { username: active.username } : {}),
+        ...(active.avatarUrl !== undefined ? { avatarUrl: active.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" } : {}),
+        ...(active.coverUrl !== undefined ? { coverUrl: active.coverUrl || "" } : {}),
+      }));
     }
-  }, [propProfile]);
+  }, [propProfile, contextProfile]);
 
-  // Fetch initial profile from PostgreSQL DB or listen for instant profile update events
   useEffect(() => {
     async function loadDbUser() {
       const res = await getUserProfileAction(user?.email || (user as any)?.username);
       if (res.success && res.user) {
-        setLiveProfile({
-          name: res.user.name || "Kōshi Sugawara",
-          username: res.user.username || "kshisugawara9553",
-          avatarUrl: res.user.avatarUrl || user?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-          coverUrl: res.user.coverUrl || "",
-        });
-      }
-    }
-
-    if (!propProfile) {
-      loadDbUser();
-    }
-
-    // Custom event listener for instant application-wide profile updates
-    const handleCustomProfileUpdate = (e: CustomEvent) => {
-      if (e.detail) {
         setLiveProfile((prev) => ({
           ...prev,
-          ...e.detail,
+          name: res.user.name || prev.name,
+          username: res.user.username || prev.username,
+          avatarUrl: res.user.avatarUrl || prev.avatarUrl,
+          coverUrl: res.user.coverUrl || prev.coverUrl,
         }));
       }
-    };
+    }
 
-    window.addEventListener("komyut-profile-update" as any, handleCustomProfileUpdate);
-    return () => {
-      window.removeEventListener("komyut-profile-update" as any, handleCustomProfileUpdate);
-    };
-  }, [user, propProfile]);
+    if (!propProfile && !contextProfile) {
+      loadDbUser();
+    }
+  }, [user, propProfile, contextProfile]);
 
   const navList = [
     { id: "home", label: "Feed Homepage", icon: "Home", href: "/feed" },

@@ -25,13 +25,17 @@ import {
   AtSign,
   AlertCircle,
   CheckCircle2,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatJoinedDate } from "@/lib/formatters";
 import {
   updateProfileAction,
   checkUsernameAvailabilityAction,
 } from "@/app/actions/user-actions";
 import { uploadImageAction } from "@/app/actions/upload-action";
+import { useUserProfile } from "@/components/providers/user-profile-provider";
+import { getAbsoluteUrl, copyToClipboard } from "@/lib/utils";
 
 interface ProfileClientContainerProps {
   initialUser: {
@@ -44,11 +48,13 @@ interface ProfileClientContainerProps {
     homeArea: string | null;
     reputationPoints: number;
     verifiedAnswersCount: number;
+    createdAt?: string;
   };
 }
 
 export function ProfileClientContainer({ initialUser }: ProfileClientContainerProps) {
   const { data: session } = useSession();
+  const { updateProfile } = useUserProfile();
   const [activeTab, setActiveTab] = useState<"answers" | "questions" | "saved">("answers");
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -83,6 +89,7 @@ export function ProfileClientContainer({ initialUser }: ProfileClientContainerPr
     reputationPoints: initialUser.reputationPoints || 3420,
     verifiedGuidesCount: initialUser.verifiedAnswersCount || 88,
     contributionsCount: 142,
+    createdAt: initialUser.createdAt || new Date().toISOString(),
   });
 
   // Edit draft form copy (ONLY updated during editing, discarded if cancelled!)
@@ -160,10 +167,13 @@ export function ProfileClientContainer({ initialUser }: ProfileClientContainerPr
 
   const userHandle = `@${profileData.username}`;
 
-  const handleShareProfile = () => {
-    const uniqueShareUrl = `${window.location.origin}/user/${profileData.username}`;
-    navigator.clipboard.writeText(uniqueShareUrl);
-    toast.success("Profile link copied to clipboard!");
+  const handleShareProfile = async () => {
+    const uniqueShareUrl = getAbsoluteUrl(`/user/${profileData.username}`);
+    await copyToClipboard(uniqueShareUrl);
+    toast.success("Profile link copied to clipboard!", {
+      description: uniqueShareUrl,
+      icon: <Copy className="w-4 h-4 text-emerald-500" />,
+    });
   };
 
   // SAVE CHANGES: Commits draft editForm into profileData and updates PostgreSQL DB
@@ -186,19 +196,13 @@ export function ProfileClientContainer({ initialUser }: ProfileClientContainerPr
       setEditForm(updated);
       setIsEditing(false);
 
-      // 2. Dispatch event to update LeftSidebar
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("komyut-profile-update", {
-            detail: {
-              name: updated.name,
-              username: updated.username,
-              avatarUrl: updated.avatarUrl,
-              coverUrl: updated.coverUrl,
-            },
-          })
-        );
-      }
+      // 2. Update global UserProfileContext for reactive component sync
+      updateProfile({
+        name: updated.name,
+        username: updated.username,
+        avatarUrl: updated.avatarUrl,
+        coverUrl: updated.coverUrl,
+      });
 
       // 3. Persist to PostgreSQL database cleanly
       const res = await updateProfileAction({
@@ -278,17 +282,16 @@ export function ProfileClientContainer({ initialUser }: ProfileClientContainerPr
                 </div>
               )}
 
-              {/* Choose Cover Photo Button when editing */}
+              {/* Centered Cover Photo Overlay when editing (Matches Avatar Edit overlay design) */}
               {isEditing && (
-                <button
-                  type="button"
+                <div
                   onClick={() => coverFileRef.current?.click()}
-                  className="absolute top-3 right-3 bg-black/75 hover:bg-black/95 text-white px-3.5 py-1.5 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 backdrop-blur-md border border-white/20 cursor-pointer transition-all hover:scale-105"
+                  className="absolute inset-0 bg-black/50 hover:bg-black/60 backdrop-blur-2xs flex flex-col items-center justify-center text-white cursor-pointer opacity-90 hover:opacity-100 transition-all select-none"
                   title="Choose cover photo from device"
                 >
-                  <Camera className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Choose Cover Photo</span>
-                </button>
+                  <Camera className="w-6 h-6 sm:w-7 sm:h-7 mb-1 text-emerald-400" />
+                  <span className="text-xs sm:text-sm font-bold tracking-tight">Edit Cover Photo</span>
+                </div>
               )}
             </div>
 
@@ -390,9 +393,15 @@ export function ProfileClientContainer({ initialUser }: ProfileClientContainerPr
                   <p className="text-xs font-semibold text-muted-foreground">
                     {userHandle}
                   </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>{profileData.homeArea}</span>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>{profileData.homeArea}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <span>{formatJoinedDate(profileData.createdAt)}</span>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed pt-1 italic">
                     "{profileData.bio}"

@@ -33,7 +33,7 @@ export function UserInfo({ author, createdAt, isVerified }: UserInfoProps) {
     <UserHoverCard author={author}>
       <div className="flex items-center gap-2.5 select-none group">
         {/* Avatar */}
-        <Avatar className="h-9 w-9 border border-border/60 shrink-0 transition-transform group-hover:scale-105">
+        <Avatar className="h-9 w-9 border border-border/60 shrink-0">
           {author.avatarUrl && <AvatarImage src={author.avatarUrl} alt={author.name} />}
           <AvatarFallback className="text-xs bg-muted text-foreground font-extrabold">
             {initials}
