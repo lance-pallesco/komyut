@@ -1,13 +1,14 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { NAV_ITEMS } from "@/lib/constants";
-import { Home, User, Bookmark, HelpCircle, Award, ShieldCheck, Sparkles, MapPin, ChevronRight, LogIn } from "lucide-react";
+import { Home, User, Bookmark, HelpCircle, Award, ShieldCheck, Sparkles, ChevronRight, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TopContributors } from "@/components/sidebar/top-contributors";
 import { MOCK_TOP_CONTRIBUTORS } from "@/lib/mock-data";
+import { getUserProfileAction } from "@/app/actions/user-actions";
 
 const ICON_MAP = {
   Home,
@@ -18,12 +19,76 @@ const ICON_MAP = {
   ShieldCheck,
 };
 
-export function LeftSidebar() {
+interface LeftSidebarProps {
+  profileData?: {
+    name?: string;
+    username?: string;
+    avatarUrl?: string;
+    coverUrl?: string;
+  };
+}
+
+export function LeftSidebar({ profileData: propProfile }: LeftSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  // Updated navigation list with My Profile tab
+  const user = session?.user;
+
+  // Local live profile state for instant reflection
+  const [liveProfile, setLiveProfile] = useState({
+    name: propProfile?.name || user?.name || "Kōshi Sugawara",
+    username: propProfile?.username || (user as any)?.username || "kshisugawara9553",
+    avatarUrl: propProfile?.avatarUrl || user?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    coverUrl: propProfile?.coverUrl || "",
+  });
+
+  // Sync propProfile immediately when prop changes on /profile page
+  useEffect(() => {
+    if (propProfile) {
+      setLiveProfile({
+        name: propProfile.name || liveProfile.name,
+        username: propProfile.username || liveProfile.username,
+        avatarUrl: propProfile.avatarUrl || liveProfile.avatarUrl,
+        coverUrl: propProfile.coverUrl ?? liveProfile.coverUrl,
+      });
+    }
+  }, [propProfile]);
+
+  // Fetch initial profile from PostgreSQL DB or listen for instant profile update events
+  useEffect(() => {
+    async function loadDbUser() {
+      const res = await getUserProfileAction(user?.email || (user as any)?.username);
+      if (res.success && res.user) {
+        setLiveProfile({
+          name: res.user.name || "Kōshi Sugawara",
+          username: res.user.username || "kshisugawara9553",
+          avatarUrl: res.user.avatarUrl || user?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          coverUrl: res.user.coverUrl || "",
+        });
+      }
+    }
+
+    if (!propProfile) {
+      loadDbUser();
+    }
+
+    // Custom event listener for instant application-wide profile updates
+    const handleCustomProfileUpdate = (e: CustomEvent) => {
+      if (e.detail) {
+        setLiveProfile((prev) => ({
+          ...prev,
+          ...e.detail,
+        }));
+      }
+    };
+
+    window.addEventListener("komyut-profile-update" as any, handleCustomProfileUpdate);
+    return () => {
+      window.removeEventListener("komyut-profile-update" as any, handleCustomProfileUpdate);
+    };
+  }, [user, propProfile]);
+
   const navList = [
     { id: "home", label: "Feed Homepage", icon: "Home", href: "/feed" },
     { id: "profile", label: "My Profile", icon: "User", href: "/profile" },
@@ -33,82 +98,66 @@ export function LeftSidebar() {
     { id: "guidelines", label: "Community Rules", icon: "ShieldCheck", href: "/rules" },
   ];
 
-  const user = session?.user;
-  const userName = user?.name || (user as any)?.username || "Commuter";
-  const userHandle = (user as any)?.username ? `@${(user as any).username}` : "Filipino Commuter";
-  const userImage = user?.image || `https://api.dicebear.com/7.x/bottts/svg?seed=${userName}`;
+  const userName = liveProfile.name;
+  const userHandle = `@${liveProfile.username}`;
+  const userAvatar = liveProfile.avatarUrl;
+  const userCover = liveProfile.coverUrl;
 
   return (
     <aside className="space-y-4 select-none" aria-label="Main Navigation">
       {/* LinkedIn-Style Profile Header Card */}
       <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
-        {/* Cover Photo Banner Gradient */}
-        <div className="h-16 w-full bg-gradient-to-r from-blue-900 via-blue-800 to-emerald-600 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(#opacity_0.15)] bg-[size:12px_12px] opacity-30" />
+        {/* Cover Photo Banner (Reflects instantly when cover is updated!) */}
+        <div className="h-16 w-full relative overflow-hidden">
+          {userCover ? (
+            <img src={userCover} alt="Cover Banner" className="w-full h-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-r from-blue-900 via-blue-800 to-emerald-600 relative">
+              <div className="absolute inset-0 bg-[radial-gradient(#opacity_0.15)] bg-[size:12px_12px] opacity-30" />
+            </div>
+          )}
         </div>
 
         {/* Profile Details Section */}
         <div className="px-4 pb-4 text-center relative pt-0">
-          {/* Avatar Ring */}
+          {/* Avatar Ring (Reflects instantly when avatar is updated!) */}
           <div className="relative inline-block -mt-9 mb-2">
             <div className="w-16 h-16 rounded-full ring-4 ring-card bg-muted overflow-hidden shadow-md flex items-center justify-center text-lg font-bold text-emerald-600 dark:text-emerald-400">
-              {status === "authenticated" ? (
-                <img src={userImage} alt={userName} className="w-full h-full object-cover" />
-              ) : (
-                <User className="w-8 h-8 text-muted-foreground" />
-              )}
+              <img src={userAvatar} alt={userName} className="w-full h-full object-cover" />
             </div>
-            {status === "authenticated" && (
-              <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-card" title="Active Commuter" />
-            )}
+            <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-card" title="Active Commuter" />
           </div>
 
-          {/* Name & Tagline */}
-          {status === "authenticated" ? (
-            <div className="space-y-1">
-              <Link href="/profile" className="font-bold text-sm text-foreground hover:underline block truncate">
-                {userName}
-              </Link>
-              <p className="text-[11px] font-medium text-muted-foreground truncate">
-                {userHandle} • <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Route Master </span>
-              </p>
+          {/* Name & Tagline (Reflects instantly when name is updated!) */}
+          <div className="space-y-1">
+            <Link href="/profile" className="font-bold text-sm text-foreground hover:underline block truncate">
+              {userName}
+            </Link>
+            <p className="text-[11px] font-medium text-muted-foreground truncate">
+              {userHandle} • <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Route Master </span>
+            </p>
 
-              {/* Stats Bar */}
-              <div className="pt-3 mt-3 border-t border-border/60 grid grid-cols-2 gap-2 text-center text-xs">
-                <div className="p-1.5 rounded-lg bg-muted/40">
-                  <span className="text-xs font-bold text-foreground block">88</span>
-                  <span className="text-[10px] text-muted-foreground">Verified Guides</span>
-                </div>
-                <div className="p-1.5 rounded-lg bg-muted/40">
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">3.4k</span>
-                  <span className="text-[10px] text-muted-foreground">Reputation Pts</span>
-                </div>
+            {/* Stats Bar */}
+            <div className="pt-3 mt-3 border-t border-border/60 grid grid-cols-2 gap-2 text-center text-xs">
+              <div className="p-1.5 rounded-lg bg-muted/40">
+                <span className="text-xs font-bold text-foreground block">88</span>
+                <span className="text-[10px] text-muted-foreground">Verified Guides</span>
               </div>
+              <div className="p-1.5 rounded-lg bg-muted/40">
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">3.4k</span>
+                <span className="text-[10px] text-muted-foreground">Reputation Pts</span>
+              </div>
+            </div>
 
-              {/* View Profile Button */}
-              <Link
-                href="/profile"
-                className="mt-3 w-full py-1.5 px-3 rounded-xl bg-muted/60 hover:bg-muted text-xs font-bold text-foreground flex items-center justify-center gap-1 transition-all border border-border/60"
-              >
-                <span>View Profile</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <h3 className="font-bold text-sm text-foreground">Welcome to KOMYUT!</h3>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Sign in to post questions, verify routes, and build your commuter legacy.
-              </p>
-              <Link
-                href="/"
-                className="mt-2 w-full py-2 px-3 rounded-xl bg-blue-900 hover:bg-blue-950 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In / Create Account</span>
-              </Link>
-            </div>
-          )}
+            {/* View Profile Button */}
+            <Link
+              href="/profile"
+              className="mt-3 w-full py-1.5 px-3 rounded-xl bg-muted/60 hover:bg-muted text-xs font-bold text-foreground flex items-center justify-center gap-1 transition-all border border-border/60"
+            >
+              <span>View Profile</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </div>
 

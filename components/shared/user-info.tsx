@@ -4,6 +4,7 @@ import type { User } from "@/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CheckCircle2 } from "lucide-react";
 import { useRelativeTime } from "@/hooks/use-relative-time";
+import { UserHoverCard } from "./user-hover-card";
 
 interface UserInfoProps {
   author: User;
@@ -13,10 +14,15 @@ interface UserInfoProps {
 
 export function UserInfo({ author, createdAt, isVerified }: UserInfoProps) {
   const formattedTime = useRelativeTime(createdAt);
-  const isAnonymous = author.name === "Anonymous Commuter" || !author.avatarUrl;
+  const isAnonymous =
+    author.name === "Anonymous Commuter" ||
+    author.name === "Anonymous participant" ||
+    author.username === "anonymous" ||
+    !author.avatarUrl;
+
   const initials = isAnonymous
     ? "AC"
-    : author.name
+    : (author.name || "Commuter")
         .split(" ")
         .map((n) => n[0])
         .join("")
@@ -24,34 +30,39 @@ export function UserInfo({ author, createdAt, isVerified }: UserInfoProps) {
         .toUpperCase();
 
   return (
-    <div className="flex items-center gap-2.5 select-none">
-      <Avatar className="h-9 w-9 border border-border/60 shrink-0">
-        {author.avatarUrl && <AvatarImage src={author.avatarUrl} alt={author.name} />}
-        <AvatarFallback className="text-xs bg-muted text-foreground font-extrabold">
-          {initials}
-        </AvatarFallback>
-      </Avatar>
+    <UserHoverCard author={author}>
+      <div className="flex items-center gap-2.5 select-none group">
+        {/* Avatar */}
+        <Avatar className="h-9 w-9 border border-border/60 shrink-0 transition-transform group-hover:scale-105">
+          {author.avatarUrl && <AvatarImage src={author.avatarUrl} alt={author.name} />}
+          <AvatarFallback className="text-xs bg-muted text-foreground font-extrabold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
 
-      <div className="flex flex-col min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-xs sm:text-sm text-foreground hover:underline cursor-pointer leading-tight truncate">
-            {author.name}
+        {/* User Details */}
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-xs sm:text-sm text-foreground hover:underline leading-tight truncate">
+              {isAnonymous ? "Anonymous participant" : author.name}
+            </span>
+
+            {author.badge && !isAnonymous && (
+              <span className="hidden sm:inline-block text-[10px] font-medium px-1.5 py-0.2 rounded bg-muted text-muted-foreground">
+                {author.badge}
+              </span>
+            )}
+            {isVerified && (
+              <span title="Verified Route Guide" className="inline-flex items-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-emerald-500/10" />
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] text-muted-foreground/80 font-normal leading-tight mt-0.5" suppressHydrationWarning>
+            {formattedTime}
           </span>
-          {author.badge && (
-            <span className="hidden sm:inline-block text-[10px] font-medium px-1.5 py-0.2 rounded bg-muted text-muted-foreground">
-              {author.badge}
-            </span>
-          )}
-          {isVerified && (
-            <span title="Verified Route Guide" className="inline-flex items-center shrink-0">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-emerald-500/10" />
-            </span>
-          )}
         </div>
-        <span className="text-[11px] text-muted-foreground/80 font-normal leading-tight mt-0.5" suppressHydrationWarning>
-          {formattedTime}
-        </span>
       </div>
-    </div>
+    </UserHoverCard>
   );
 }

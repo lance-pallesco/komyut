@@ -6,6 +6,7 @@ import type { Post, Comment } from "@/types";
 import { formatRelativeTime } from "@/lib/formatters";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserInfo } from "@/components/shared/user-info";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { TransportBadge } from "@/components/shared/transport-badge";
 import { PostRouteDisplay } from "./post-route-display";
 import {
@@ -163,27 +164,31 @@ function CommentItem({
   return (
     <div className="space-y-2">
       <div className="flex items-start gap-3">
-        <Avatar
-          className={cn(
-            "border border-border/50 shrink-0 mt-0.5",
-            isMother ? "h-8 w-8 sm:h-9 sm:w-9" : "h-7 w-7 sm:h-8 sm:w-8"
-          )}
-        >
-          <AvatarImage
-            src={comment.author.avatarUrl}
-            alt={comment.author.name}
-          />
-          <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-            {comment.author.name.substring(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <UserHoverCard author={comment.author}>
+          <Avatar
+            className={cn(
+              "border border-border/50 shrink-0 mt-0.5",
+              isMother ? "h-8 w-8 sm:h-9 sm:w-9" : "h-7 w-7 sm:h-8 sm:w-8"
+            )}
+          >
+            <AvatarImage
+              src={comment.author.avatarUrl}
+              alt={comment.author.name}
+            />
+            <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+              {(comment.author.name || "C").substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        </UserHoverCard>
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
-              <span className="text-xs sm:text-sm font-bold text-foreground truncate">
-                {comment.author.name}
-              </span>
+              <UserHoverCard author={comment.author}>
+                <span className="text-xs sm:text-sm font-bold text-foreground hover:underline truncate">
+                  {comment.author.name}
+                </span>
+              </UserHoverCard>
               <span className="text-[10px] text-muted-foreground/70 shrink-0" suppressHydrationWarning>
                 • {formatRelativeTime(comment.createdAt)}
               </span>
