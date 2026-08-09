@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { UserInfo } from "@/components/shared/user-info";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { TransportBadge } from "@/components/shared/transport-badge";
+import { useGuestAuthModal } from "@/components/providers/guest-auth-provider";
 import { PostRouteDisplay } from "./post-route-display";
 import {
   DropdownMenu,
@@ -118,11 +119,12 @@ function CommentItem({
   setReplyText,
   onReplySubmit,
 }: CommentItemProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const { openGuestAuthModal } = useGuestAuthModal();
   const loggedInUser = session?.user;
-  const userImage = loggedInUser?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
-  const userName = loggedInUser?.name || (loggedInUser as any)?.username || "Lance Pallesco";
-  const userInitials = userName.substring(0, 2).toUpperCase();
+  const userImage = loggedInUser?.image || "/logo.png";
+  const userName = loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
+  const userInitials = (userName[0] || "C").toUpperCase();
 
   const [liked, setLiked] = useState(comment.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(comment.upvoteCount);
@@ -148,6 +150,14 @@ function CommentItem({
   const canDelete = isCommentOwner || isPostOwner;
 
   const toggleLike = async () => {
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Mag-like",
+        description: "Kailangan ng account para makapag-like ng commute guides at sagot.",
+        icon: "heart",
+      });
+      return;
+    }
     const next = !liked;
     setLiked(next);
     setLikesCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
@@ -216,7 +226,7 @@ function CommentItem({
           </div>
 
           {/* Comment Body Text */}
-          <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal pt-0.5">
+          <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal pt-0.5 break-words whitespace-pre-line">
             {formatCommentBody(comment)}
           </p>
 
@@ -402,6 +412,7 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
     }
   };
 
+  const { openGuestAuthModal } = useGuestAuthModal();
   const [isBookmarkedState, setIsBookmarkedState] = useState(post.isBookmarked ?? false);
   const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
   const [isExpanded, setIsExpanded] = useState(isHighlighted);
@@ -417,6 +428,33 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  const handlePostLike = () => {
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Mag-like",
+        description: "Kailangan ng account para makapag-like ng commute guides at tanong.",
+        icon: "heart",
+      });
+      return;
+    }
+    onVote(post.id);
+  };
+
+  const handleBookmarkToggle = () => {
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Mag-save",
+        description: "Kailangan ng account para ma-save ang commute routes sa iyong profile.",
+        icon: "bookmark",
+      });
+      return;
+    }
+    const nextState = !isBookmarkedState;
+    setIsBookmarkedState(nextState);
+    onBookmark(post.id);
+    toast.success(nextState ? "Post saved to bookmarks!" : "Post removed from bookmarks");
+  };
 
   const requestDeleteComment = (commentId: string) => {
     setDeleteTargetId(commentId);
@@ -443,13 +481,6 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
 
   const totalComments = getTotalCommentCount(postComments) || post.answerCount;
 
-  const handleBookmarkToggle = () => {
-    const nextState = !isBookmarkedState;
-    setIsBookmarkedState(nextState);
-    onBookmark(post.id);
-    toast.success(nextState ? "Post saved to bookmarks!" : "Post removed from bookmarks");
-  };
-
   const handleShareLink = async () => {
     const url = getCurrentUrl();
     await copyToClipboard(url);
@@ -462,6 +493,14 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Sumagot",
+        description: "Kailangan ng account para makapagbahagi ng commute guide at sagot.",
+        icon: "plus",
+      });
+      return;
+    }
     if (!newComment.trim()) return;
 
     const currentText = newComment.trim();
@@ -690,11 +729,11 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
             </div>
           </div>
 
-          <h2 className="text-lg sm:text-lg font-black text-[#3D3C3A] dark:text-[#E2E2E2] tracking-tight transition-colors cursor-pointer leading-snug break-words">
+          <h2 className="text-lg sm:text-lg font-black text-[#3D3C3A] dark:text-[#E2E2E2] tracking-tight transition-colors cursor-pointer leading-snug break-words whitespace-pre-line">
             {postData.title}
           </h2>
 
-          <p className="text-xs sm:text-sm text-foreground/80 leading-relaxed font-normal">
+          <p className="text-xs sm:text-sm text-foreground/80 leading-relaxed font-normal break-words whitespace-pre-line">
             {postData.body}
           </p>
 
@@ -734,7 +773,7 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
               <LikeButton
                 count={post.upvoteCount}
                 isLiked={isLiked}
-                onLike={() => onVote(post.id)}
+                onLike={handlePostLike}
                 variant="post"
               />
 

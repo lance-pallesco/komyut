@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { LeftSidebar } from "@/components/layout/left-sidebar";
 import { RightSidebar } from "@/components/layout/right-sidebar";
-import { ShieldCheck, CheckCircle2, AlertTriangle, Compass, MapPin, HeartHandshake, RefreshCw } from "lucide-react";
+import { ShieldCheck, CheckCircle2, AlertTriangle, Compass, MapPin, HeartHandshake, RefreshCw, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function RulesClientContainer() {
+  const searchParams = useSearchParams();
+  const isNewUser = searchParams?.get("welcome") === "true";
+
   const rules = [
     {
       id: 1,
@@ -62,6 +66,25 @@ export function RulesClientContainer() {
           </aside>
 
           <main className="col-span-1 md:col-span-8 lg:col-span-6 space-y-4">
+            {/* New User Welcome Notice Banner */}
+            {isNewUser && (
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-900 via-blue-950 to-emerald-950 border border-emerald-500/40 text-white shadow-lg space-y-3 relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <PartyPopper className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-extrabold text-base sm:text-lg tracking-tight text-white">
+                      Maligayang Pagdating sa KOMYUT! 🎉
+                    </h2>
+                    <p className="text-xs text-emerald-300 font-medium">
+                      Bago ka magsimula mag-post o sumagot sa ating komunidad, mangyaring basahin muna ang 5 pangunahing alituntunin sa ibaba.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Page Header Banner */}
             <div className="bg-card p-5 rounded-2xl border border-border/80 shadow-xs space-y-2">
               <div className="flex items-center gap-3">

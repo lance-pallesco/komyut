@@ -7,13 +7,28 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Bus, Send } from "lucide-react";
 import { PostFormModal } from "@/components/post/post-form-modal";
 
+import { useGuestAuthModal } from "@/components/providers/guest-auth-provider";
+
 export function CreatePostBox() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const { openGuestAuthModal } = useGuestAuthModal();
   const [isOpen, setIsOpen] = useState(false);
 
   const currentUser = session?.user;
-  const userName = currentUser?.name || (currentUser as any)?.username || "Lance Christian Pallesco";
-  const userImage = currentUser?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
+  const userName = currentUser?.name || (currentUser as any)?.username || "Commuter";
+  const userImage = currentUser?.image || "/logo.png";
+
+  const handleOpenClick = () => {
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Magtanong",
+        description: "Kailangan ng account para makapag-post ng tanong sa komunidad.",
+        icon: "plus",
+      });
+      return;
+    }
+    setIsOpen(true);
+  };
 
   return (
     <>
@@ -26,7 +41,7 @@ export function CreatePostBox() {
               {userName[0]}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 relative" onClick={() => setIsOpen(true)}>
+          <div className="flex-1 relative" onClick={handleOpenClick}>
             <input
               type="text"
               readOnly
@@ -42,7 +57,7 @@ export function CreatePostBox() {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setIsOpen(true)}
+              onClick={handleOpenClick}
               className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 text-xs font-semibold rounded-lg cursor-pointer"
             >
               <MapPin className="w-4 h-4 text-emerald-500" />
@@ -53,7 +68,7 @@ export function CreatePostBox() {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setIsOpen(true)}
+              onClick={handleOpenClick}
               className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 text-xs font-semibold rounded-lg cursor-pointer"
             >
               <Bus className="w-4 h-4 text-blue-500" />
@@ -64,7 +79,7 @@ export function CreatePostBox() {
           <Button
             type="button"
             size="sm"
-            onClick={() => setIsOpen(true)}
+            onClick={handleOpenClick}
             className="h-8 px-4 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full gap-1.5 text-xs shadow-xs cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />

@@ -89,12 +89,14 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
         token.username = (user as any).username;
         token.role = (user as any).role || "user";
-      } else if (token.email && !token.username) {
+      }
+
+      if (token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
         });
@@ -103,6 +105,8 @@ export const authOptions: NextAuthOptions = {
           token.username = dbUser.username;
           token.role = dbUser.role;
           token.picture = dbUser.avatarUrl || token.picture;
+          // Account created within the last 45 seconds = New User
+          token.isNewUser = Date.now() - new Date(dbUser.createdAt).getTime() < 45000;
         }
       }
       return token;
@@ -113,6 +117,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).id = token.id;
         (session.user as any).username = token.username;
         (session.user as any).role = token.role;
+        (session.user as any).isNewUser = token.isNewUser || false;
         session.user.image = token.picture || session.user.image;
       }
       return session;

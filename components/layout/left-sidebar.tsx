@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { TopContributors } from "@/components/sidebar/top-contributors";
 import { MOCK_TOP_CONTRIBUTORS } from "@/lib/mock-data";
 import { useUserProfile } from "@/components/providers/user-profile-provider";
+import { useGuestAuthModal } from "@/components/providers/guest-auth-provider";
 import { getUserProfileAction } from "@/app/actions/user-actions";
 
 const ICON_MAP = {
@@ -32,7 +33,7 @@ interface LeftSidebarProps {
 export function LeftSidebar({ profileData: propProfile }: LeftSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { profile: contextProfile } = useUserProfile();
 
   const user = session?.user;
@@ -87,68 +88,108 @@ export function LeftSidebar({ profileData: propProfile }: LeftSidebarProps) {
     { id: "guidelines", label: "Community Rules", icon: "ShieldCheck", href: "/rules" },
   ];
 
-  const userName = liveProfile.name;
-  const userHandle = `@${liveProfile.username}`;
+  const isLoggedIn = status === "authenticated" && !!user;
+  const userName = liveProfile.name || user?.name || "Commuter";
+  const userHandle = `@${liveProfile.username || (user as any)?.username || "commuter"}`;
   const userAvatar = liveProfile.avatarUrl;
   const userCover = liveProfile.coverUrl;
 
+  const { openGuestAuthModal } = useGuestAuthModal();
+
+  const handleNavClick = (e: React.MouseEvent, href: string) => {
+    const isProtectedRoute = href === "/profile" || href === "/saved" || href === "/my-questions";
+    if (!isLoggedIn && isProtectedRoute) {
+      e.preventDefault();
+      openGuestAuthModal({
+        title: "Kailangan Mag-Sign In",
+        description: "Mag-sign in muna sa KOMYUT para ma-access ang pahinang ito.",
+        icon: "lock",
+      });
+    }
+  };
+
   return (
     <aside className="space-y-4 select-none" aria-label="Main Navigation">
-      {/* LinkedIn-Style Profile Header Card */}
-      <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
-        {/* Cover Photo Banner (Reflects instantly when cover is updated!) */}
-        <div className="h-16 w-full relative overflow-hidden">
-          {userCover ? (
-            <img src={userCover} alt="Cover Banner" className="w-full h-full object-cover" />
-          ) : (
-            <div className="h-full w-full bg-gradient-to-r from-blue-900 via-blue-800 to-emerald-600 relative">
-              <div className="absolute inset-0 bg-[radial-gradient(#opacity_0.15)] bg-[size:12px_12px] opacity-30" />
-            </div>
-          )}
-        </div>
-
-        {/* Profile Details Section */}
-        <div className="px-4 pb-4 text-center relative pt-0">
-          {/* Avatar Ring (Reflects instantly when avatar is updated!) */}
-          <div className="relative inline-block -mt-9 mb-2">
-            <div className="w-16 h-16 rounded-full ring-4 ring-card bg-muted overflow-hidden shadow-md flex items-center justify-center text-lg font-bold text-emerald-600 dark:text-emerald-400">
-              <img src={userAvatar} alt={userName} className="w-full h-full object-cover" />
-            </div>
-            <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-card" title="Active Commuter" />
+      {/* Profile / Welcome Card */}
+      {!isLoggedIn && !propProfile ? (
+        <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
+          {/* Cover Banner */}
+          <div className="h-16 w-full relative overflow-hidden bg-gradient-to-r from-blue-900 via-blue-800 to-emerald-600">
+            <div className="absolute inset-0 bg-[radial-gradient(#opacity_0.15)] bg-[size:12px_12px] opacity-30" />
           </div>
 
-          {/* Name & Tagline (Reflects instantly when name is updated!) */}
-          <div className="space-y-1">
-            <Link href="/profile" className="font-bold text-sm text-foreground hover:underline block truncate">
-              {userName}
-            </Link>
-            <p className="text-[11px] font-medium text-muted-foreground truncate">
-              {userHandle} • <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Route Master </span>
-            </p>
-
-            {/* Stats Bar */}
-            <div className="pt-3 mt-3 border-t border-border/60 grid grid-cols-2 gap-2 text-center text-xs">
-              <div className="p-1.5 rounded-lg bg-muted/40">
-                <span className="text-xs font-bold text-foreground block">88</span>
-                <span className="text-[10px] text-muted-foreground">Verified Guides</span>
-              </div>
-              <div className="p-1.5 rounded-lg bg-muted/40">
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">3.4k</span>
-                <span className="text-[10px] text-muted-foreground">Reputation Pts</span>
+          {/* Details */}
+          <div className="px-4 pb-4 text-center relative pt-0">
+            {/* Logo Avatar */}
+            <div className="relative inline-block -mt-9 mb-2">
+              <div className="w-16 h-16 rounded-full ring-4 ring-card bg-background p-2 shadow-md flex items-center justify-center">
+                <img src="/logo.png" alt="KOMYUT Logo" className="w-full h-full object-contain" />
               </div>
             </div>
 
-            {/* View Profile Button */}
-            <Link
-              href="/profile"
-              className="mt-3 w-full py-1.5 px-3 rounded-xl bg-muted/60 hover:bg-muted text-xs font-bold text-foreground flex items-center justify-center gap-1 transition-all border border-border/60"
-            >
-              <span>View Profile</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
+            {/* Welcome Text */}
+            <div className="space-y-1">
+              <h3 className="font-extrabold text-base text-foreground">Welcome to KOMYUT</h3>
+              <p className="text-xs text-muted-foreground leading-snug">
+                Sign in to ask questions, share route guides, and save commute directions.
+              </p>
+
+              {/* Sign In Button -> Redirects to / landing auth panel */}
+              <Link
+                href="/"
+                className="mt-3 w-full py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-xs font-bold text-primary-foreground flex items-center justify-center gap-1.5 transition-all shadow-xs"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In to Continue</span>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        /* LinkedIn-Style Logged In Profile Header Card */
+        <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
+          {/* Cover Photo Banner */}
+          <div className="h-16 w-full relative overflow-hidden">
+            {userCover ? (
+              <img src={userCover} alt="Cover Banner" className="w-full h-full object-cover" />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-r from-blue-900 via-blue-800 to-emerald-600 relative">
+                <div className="absolute inset-0 bg-[radial-gradient(#opacity_0.15)] bg-[size:12px_12px] opacity-30" />
+              </div>
+            )}
+          </div>
+
+          {/* Profile Details Section */}
+          <div className="px-4 pb-4 text-center relative pt-0">
+            {/* Avatar Ring */}
+            <div className="relative inline-block -mt-9 mb-2">
+              <div className="w-16 h-16 rounded-full ring-4 ring-card bg-muted overflow-hidden shadow-md flex items-center justify-center text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                <img src={userAvatar} alt={userName} className="w-full h-full object-cover" />
+              </div>
+              <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-card" title="Active Commuter" />
+            </div>
+
+            {/* Name & Tagline */}
+            <div className="space-y-1">
+              <Link href="/profile" className="font-bold text-sm text-foreground hover:underline block truncate">
+                {userName}
+              </Link>
+              <p className="text-[11px] font-medium text-muted-foreground truncate">
+                {userHandle} • <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Route Master</span>
+              </p>
+
+              {/* View Profile Button */}
+              <Link
+                href="/profile"
+                className="mt-3 w-full py-1.5 px-3 rounded-xl bg-muted/60 hover:bg-muted text-xs font-bold text-foreground flex items-center justify-center gap-1 transition-all border border-border/60"
+              >
+                <span>View Profile</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Navigation List */}
       <div className="p-2 rounded-2xl border border-border/80 bg-card shadow-xs space-y-1">
@@ -163,6 +204,7 @@ export function LeftSidebar({ profileData: propProfile }: LeftSidebarProps) {
             <Link
               key={item.id}
               href={item.href}
+              onClick={(e) => handleNavClick(e, item.href)}
               className={cn(
                 "flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group",
                 isActive

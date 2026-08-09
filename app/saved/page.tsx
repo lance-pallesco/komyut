@@ -8,8 +8,8 @@ export default async function SavedPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    // If not logged in, redirect to login page
-    redirect("/login");
+    // If not logged in, redirect to landing page auth panel
+    redirect("/");
   }
 
   const initialPosts = await getSavedPosts(session.user.id);

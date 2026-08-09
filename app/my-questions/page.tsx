@@ -8,7 +8,7 @@ export default async function MyQuestionsPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    redirect("/login");
+    redirect("/");
   }
 
   const initialPosts = await getUserQuestions(session.user.id);
