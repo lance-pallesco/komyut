@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import type { Post, Comment } from "@/types";
 import { formatRelativeTime } from "@/lib/formatters";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserInfo } from "@/components/shared/user-info";
+import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { TransportBadge } from "@/components/shared/transport-badge";
 import { PostRouteDisplay } from "./post-route-display";
 import {
@@ -35,7 +36,7 @@ import {
   MessageSquareOff,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getCurrentUrl, copyToClipboard } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { createAnswerAction, deleteAnswerAction } from "@/app/actions/answer-actions";
@@ -48,6 +49,7 @@ import { PostFormModal } from "@/components/post/post-form-modal";
 
 interface PostCardProps {
   post: Post;
+  isHighlighted?: boolean;
   onVote: (postId: string) => void;
   onBookmark: (postId: string) => void;
 }
@@ -163,27 +165,31 @@ function CommentItem({
   return (
     <div className="space-y-2">
       <div className="flex items-start gap-3">
-        <Avatar
-          className={cn(
-            "border border-border/50 shrink-0 mt-0.5",
-            isMother ? "h-8 w-8 sm:h-9 sm:w-9" : "h-7 w-7 sm:h-8 sm:w-8"
-          )}
-        >
-          <AvatarImage
-            src={comment.author.avatarUrl}
-            alt={comment.author.name}
-          />
-          <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-            {comment.author.name.substring(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <UserHoverCard author={comment.author}>
+          <Avatar
+            className={cn(
+              "border border-border/50 shrink-0 mt-0.5",
+              isMother ? "h-8 w-8 sm:h-9 sm:w-9" : "h-7 w-7 sm:h-8 sm:w-8"
+            )}
+          >
+            <AvatarImage
+              src={comment.author.avatarUrl}
+              alt={comment.author.name}
+            />
+            <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+              {(comment.author.name || "C").substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        </UserHoverCard>
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
-              <span className="text-xs sm:text-sm font-bold text-foreground truncate">
-                {comment.author.name}
-              </span>
+              <UserHoverCard author={comment.author}>
+                <span className="text-xs sm:text-sm font-bold text-foreground hover:underline truncate">
+                  {comment.author.name}
+                </span>
+              </UserHoverCard>
               <span className="text-[10px] text-muted-foreground/70 shrink-0" suppressHydrationWarning>
                 • {formatRelativeTime(comment.createdAt)}
               </span>
@@ -332,8 +338,9 @@ function CommentItem({
   );
 }
 
-export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
+export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: PostCardProps) {
   const router = useRouter();
+  const cardRef = useRef<HTMLDivElement>(null);
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated" && !!session?.user;
   const loggedInUser = session?.user;
@@ -397,10 +404,16 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
 
   const [isBookmarkedState, setIsBookmarkedState] = useState(post.isBookmarked ?? false);
   const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(isHighlighted);
   const [newComment, setNewComment] = useState("");
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+
+  useEffect(() => {
+    if (isHighlighted) {
+      setIsExpanded(true);
+    }
+  }, [isHighlighted]);
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -437,10 +450,9 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
     toast.success(nextState ? "Post saved to bookmarks!" : "Post removed from bookmarks");
   };
 
-  const handleShareLink = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText?.(window.location.href);
-    }
+  const handleShareLink = async () => {
+    const url = getCurrentUrl();
+    await copyToClipboard(url);
     toast.success("Direct link copied to clipboard!");
   };
 
@@ -605,7 +617,7 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
   const remainingMotherComments = sortedMotherComments.slice(1);
 
   return (
-    <article className="group">
+    <article ref={cardRef} className="group scroll-mt-24">
       <Card
         className={cn(
           "transition-all duration-200 hover:shadow-sm border-border/70 overflow-hidden bg-card",

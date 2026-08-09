@@ -10,6 +10,7 @@ interface FeedPageProps {
     tag?: string;
     sort?: "relevant" | "latest" | "most_voted";
     region?: string;
+    post?: string;
   }>;
 }
 

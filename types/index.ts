@@ -37,6 +37,9 @@ export interface User {
   name: string;
   username: string;
   avatarUrl?: string;
+  coverUrl?: string;
+  bio?: string;
+  homeArea?: string;
   badge?: string;
   reputationPoints: number;
   verifiedAnswersCount: number;

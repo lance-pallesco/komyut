@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import type { FeedTab, Region, Post } from "@/types";
 import { MOCK_POSTS } from "@/lib/mock-data";
 import { toggleVoteAction, toggleBookmarkAction } from "@/app/actions/vote-actions";
+import { getPostByIdAction } from "@/app/actions/post-actions";
 
 export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
   const searchParams = useSearchParams();
@@ -13,6 +14,7 @@ export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
   const urlQuery = searchParams.get("q") || "";
   const urlTag = searchParams.get("tag") || "";
   const urlSort = (searchParams.get("sort") as FeedTab) || "latest";
+  const urlTargetPostId = searchParams.get("post") || "";
 
   const [activeTab, setActiveTab] = useState<FeedTab>(urlSort);
   const [activeRegion, setActiveRegion] = useState<Region>("All Regions");
@@ -20,6 +22,10 @@ export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
   const [activeTagFilter, setActiveTagFilter] = useState<string>(urlTag);
   const [posts, setPosts] = useState<Post[]>(initialPosts);
   const [isPending, startTransition] = useTransition();
+
+  const [activeModalPostId, setActiveModalPostId] = useState<string>(urlTargetPostId);
+  const [modalPost, setModalPost] = useState<Post | null>(null);
+  const [isModalLoading, setIsModalLoading] = useState<boolean>(false);
 
   useEffect(() => {
     setSearchQuery(urlQuery);
@@ -32,6 +38,41 @@ export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
       setPosts(initialPosts);
     }
   }, [initialPosts]);
+
+  // Sync URL target post ID (from Next.js useSearchParams) to modal state & fetch asynchronously if needed
+  useEffect(() => {
+    setActiveModalPostId(urlTargetPostId);
+
+    if (!urlTargetPostId) {
+      setModalPost(null);
+      setIsModalLoading(false);
+      return;
+    }
+
+    const existingPost = posts.find((p) => p.id === urlTargetPostId);
+    if (existingPost) {
+      setModalPost(existingPost);
+      setIsModalLoading(false);
+    } else {
+      setIsModalLoading(true);
+      getPostByIdAction(urlTargetPostId).then((res) => {
+        if (res.success && res.post) {
+          setModalPost(res.post);
+        }
+        setIsModalLoading(false);
+      });
+    }
+  }, [urlTargetPostId, posts]);
+
+  const handleClearPostFilter = () => {
+    setActiveModalPostId("");
+    setModalPost(null);
+    setIsModalLoading(false);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("post");
+    const queryString = params.toString();
+    router.push(queryString ? `/feed?${queryString}` : "/feed", { scroll: false });
+  };
 
   const updateUrlParams = (newParams: { q?: string; tag?: string; sort?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -186,12 +227,16 @@ export function useFeedFilter(initialPosts: Post[] = MOCK_POSTS) {
     activeRegion,
     searchQuery,
     activeTagFilter,
+    targetPostId: activeModalPostId,
+    modalPost,
+    isModalLoading,
     filteredPosts,
     isLoading: isPending,
     handleTabChange,
     handleRegionChange,
     handleSearchChange,
     handleTagFilterChange,
+    handleClearPostFilter,
     clearSearch,
     handleVote,
     handleBookmark,

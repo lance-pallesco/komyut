@@ -65,3 +65,12 @@ export function formatRelativeTime(dateInput?: string | Date | number): string {
     year: isSameYear ? undefined : "numeric",
   });
 }
+
+export function formatJoinedDate(dateInput?: string | Date): string {
+  if (!dateInput) return "Joined August 2026";
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return "Joined August 2026";
+  const monthName = date.toLocaleDateString("en-US", { month: "long" });
+  const year = date.getFullYear();
+  return `Joined ${monthName} ${year}`;
+}

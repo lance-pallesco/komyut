@@ -8,9 +8,10 @@ interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  className?: string;
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, children, className }: DialogProps) {
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && open) {
@@ -19,13 +20,13 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
     };
     if (open) {
       document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
+      document.addEventListener("keydown", handleKeyDown);
     } else {
       document.body.style.overflow = "unset";
     }
     return () => {
       document.body.style.overflow = "unset";
-      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open, onOpenChange]);
 
@@ -40,7 +41,12 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
       />
 
       {/* Dialog Container */}
-      <div className="relative w-full max-w-lg rounded-3xl bg-card border border-border/80 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 fade-in-0 duration-200">
+      <div
+        className={cn(
+          "relative w-full max-w-lg rounded-3xl bg-card border border-border/80 shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 fade-in-0 duration-200",
+          className
+        )}
+      >
         {children}
       </div>
     </div>

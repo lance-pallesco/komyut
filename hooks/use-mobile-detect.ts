@@ -6,13 +6,16 @@ export function useMobileDetect(breakpoint: number = 768): boolean {
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < breakpoint);
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const updateTarget = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(e.matches);
     };
 
-    checkIsMobile();
-    window.addEventListener("resize", checkIsMobile);
-    return () => window.removeEventListener("resize", checkIsMobile);
+    updateTarget(mediaQuery);
+    mediaQuery.addEventListener("change", updateTarget);
+    return () => mediaQuery.removeEventListener("change", updateTarget);
   }, [breakpoint]);
 
   return isMobile;

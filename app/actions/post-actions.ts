@@ -5,6 +5,19 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateAutoTagsAction } from "./ai-actions";
+import { getPostById } from "@/lib/db-posts";
+
+export async function getPostByIdAction(postId: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+    const post = await getPostById(postId, userId);
+    return { success: true, post };
+  } catch (error: any) {
+    console.error("Error in getPostByIdAction:", error);
+    return { success: false, error: error?.message || "Failed to fetch post" };
+  }
+}
 
 export interface CreatePostInput {
   title: string;

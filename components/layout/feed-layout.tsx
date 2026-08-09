@@ -7,6 +7,8 @@ import { RegionFilter } from "@/components/feed/region-filter";
 import { PostList } from "@/components/feed/post-list";
 import { useFeedFilter } from "@/hooks/use-feed-filter";
 
+import { PostDetailModal } from "@/components/post/post-detail-modal";
+
 interface FeedLayoutProps {
   filterHook: ReturnType<typeof useFeedFilter>;
 }
@@ -16,17 +18,31 @@ export function FeedLayout({ filterHook }: FeedLayoutProps) {
     activeRegion,
     searchQuery,
     activeTagFilter,
+    targetPostId,
+    modalPost,
+    isModalLoading,
     filteredPosts,
     isLoading,
     handleRegionChange,
     handleSearchChange,
     handleTagFilterChange,
+    handleClearPostFilter,
     handleVote,
     handleBookmark,
   } = filterHook;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 w-full flex-1">
+      {/* Target Post Detail Modal for Notification Redirects */}
+      <PostDetailModal
+        post={modalPost}
+        isOpen={!!targetPostId}
+        isLoading={isModalLoading}
+        onClose={handleClearPostFilter}
+        onVote={handleVote}
+        onBookmark={handleBookmark}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         <aside className="hidden lg:block lg:col-span-3 sticky top-22">
           <LeftSidebar />
