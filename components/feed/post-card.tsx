@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import type { Post, Comment } from "@/types";
 import { formatRelativeTime } from "@/lib/formatters";
@@ -49,6 +49,7 @@ import { PostFormModal } from "@/components/post/post-form-modal";
 
 interface PostCardProps {
   post: Post;
+  isHighlighted?: boolean;
   onVote: (postId: string) => void;
   onBookmark: (postId: string) => void;
 }
@@ -337,8 +338,9 @@ function CommentItem({
   );
 }
 
-export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
+export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: PostCardProps) {
   const router = useRouter();
+  const cardRef = useRef<HTMLDivElement>(null);
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated" && !!session?.user;
   const loggedInUser = session?.user;
@@ -402,10 +404,16 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
 
   const [isBookmarkedState, setIsBookmarkedState] = useState(post.isBookmarked ?? false);
   const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(isHighlighted);
   const [newComment, setNewComment] = useState("");
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+
+  useEffect(() => {
+    if (isHighlighted) {
+      setIsExpanded(true);
+    }
+  }, [isHighlighted]);
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -609,7 +617,7 @@ export function PostCard({ post, onVote, onBookmark }: PostCardProps) {
   const remainingMotherComments = sortedMotherComments.slice(1);
 
   return (
-    <article className="group">
+    <article ref={cardRef} className="group scroll-mt-24">
       <Card
         className={cn(
           "transition-all duration-200 hover:shadow-sm border-border/70 overflow-hidden bg-card",

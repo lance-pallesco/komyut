@@ -48,13 +48,31 @@ export async function createAnswerAction(input: CreateAnswerInput) {
       },
     });
 
-    await prisma.post.update({
+    const targetPost = await prisma.post.update({
       where: { id: postId },
       data: {
         answerCount: { increment: 1 },
         status: "answered",
       },
     });
+
+    // Trigger Notification for Post Author
+    if (targetPost && targetPost.authorId !== userId) {
+      const answerAuthor = await prisma.user.findUnique({ where: { id: userId } });
+      const actorName = isAnonymous ? "Someone" : (answerAuthor?.name || "A commuter");
+
+      await prisma.notification.create({
+        data: {
+          userId: targetPost.authorId,
+          actorId: isAnonymous ? null : userId,
+          type: "NEW_ANSWER",
+          title: "New Answer on your post",
+          message: `${actorName} answered your question: "${targetPost.origin} → ${targetPost.destination}"`,
+          link: `/feed?post=${postId}`,
+          isRead: false,
+        },
+      });
+    }
 
     revalidatePath("/feed");
     revalidatePath(`/post/${postId}`);

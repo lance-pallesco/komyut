@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -17,30 +17,56 @@ import {
   AtSign,
   CheckCheck,
 } from "lucide-react";
-import { MOCK_NOTIFICATIONS } from "@/lib/mock-data";
 import type { AppNotification } from "@/types";
 import { cn } from "@/lib/utils";
+import {
+  getNotificationsAction,
+  markNotificationReadAction,
+  markAllNotificationsReadAction,
+} from "@/app/actions/notification-actions";
 
 export function NotificationPopover() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Fetch real notifications from PostgreSQL database
+  useEffect(() => {
+    async function loadNotifications() {
+      const res = await getNotificationsAction();
+      if (res.success && res.notifications) {
+        setNotifications(res.notifications);
+      }
+    }
+    loadNotifications();
+  }, [isOpen]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const handleMarkAllAsRead = (e: React.MouseEvent) => {
+  const handleMarkAllAsRead = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    await markAllNotificationsReadAction();
   };
 
   const handleNotificationClick = (notif: AppNotification) => {
+    // 1. Instantly mark as read in local state
     setNotifications((prev) =>
       prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
     );
+
+    // 2. Instantly close popover dropdown
     setIsOpen(false);
+
+    // 3. Trigger Next.js router navigation without scrolling to top
     if (notif.referenceId) {
-      router.push(`/feed?post=${notif.referenceId}`);
+      router.push(`/feed?post=${notif.referenceId}`, { scroll: false });
     }
+
+    // 4. Persist read status to DB asynchronously in background (non-blocking)
+    markNotificationReadAction(notif.id).catch((err) => {
+      console.error("Error marking notification as read in background:", err);
+    });
   };
 
   const getNotifIcon = (type: AppNotification["type"]) => {

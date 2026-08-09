@@ -165,6 +165,27 @@ export async function toggleAnswerVoteAction(answerId: string) {
       },
     });
 
+    // Trigger Notification for Answer Author on Upvote
+    if (isVoted && answer && answer.authorId !== userId) {
+      const voter = await prisma.user.findUnique({ where: { id: userId } });
+      const targetPost = await prisma.post.findUnique({ where: { id: answer.postId } });
+
+      const voterName = voter?.name || "A commuter";
+      const routeTitle = targetPost ? `"${targetPost.origin} → ${targetPost.destination}"` : "your commute guide";
+
+      await prisma.notification.create({
+        data: {
+          userId: answer.authorId,
+          actorId: userId,
+          type: "UPVOTE",
+          title: "Your guide received an upvote!",
+          message: `${voterName} upvoted your commute guide on ${routeTitle}`,
+          link: `/feed?post=${answer.postId}`,
+          isRead: false,
+        },
+      });
+    }
+
     revalidatePath("/feed");
 
     return { success: true, upvoteCount: newCount, isVoted };
