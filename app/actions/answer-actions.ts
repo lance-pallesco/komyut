@@ -56,8 +56,28 @@ export async function createAnswerAction(input: CreateAnswerInput) {
       },
     });
 
-    // Trigger Notification for Post Author
-    if (targetPost && targetPost.authorId !== userId) {
+    // Trigger Notification for Post Author or Parent Comment Author
+    if (parentId) {
+      const parentAnswer = await prisma.answer.findUnique({
+        where: { id: parentId },
+      });
+      if (parentAnswer && parentAnswer.authorId !== userId) {
+        const answerAuthor = await prisma.user.findUnique({ where: { id: userId } });
+        const actorName = isAnonymous ? "Someone" : (answerAuthor?.name || "A commuter");
+
+        await prisma.notification.create({
+          data: {
+            userId: parentAnswer.authorId,
+            actorId: isAnonymous ? null : userId,
+            type: "NEW_ANSWER",
+            title: "New reply to your comment",
+            message: `${actorName} replied to your comment on "${targetPost.origin} → ${targetPost.destination}"`,
+            link: `/feed?post=${postId}`,
+            isRead: false,
+          },
+        });
+      }
+    } else if (targetPost && targetPost.authorId !== userId) {
       const answerAuthor = await prisma.user.findUnique({ where: { id: userId } });
       const actorName = isAnonymous ? "Someone" : (answerAuthor?.name || "A commuter");
 

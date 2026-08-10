@@ -59,62 +59,446 @@ interface CommentItemProps {
   comment: Comment;
   postAuthorId?: string;
   postAuthorName?: string;
-  isMother?: boolean;
   isCommentingDisabled?: boolean;
   onLike: (id: string) => void;
   onDelete?: (id: string) => void;
-  replyingToId: string | null;
-  setReplyingToId: (id: string | null) => void;
+  activeReplyThreadId: string | null;
+  setActiveReplyThreadId: (id: string | null) => void;
+  targetMentionAuthor: string | null;
+  setTargetMentionAuthor: (authorName: string | null) => void;
   replyText: string;
   setReplyText: (text: string) => void;
   onReplySubmit: (parentId: string, authorName?: string) => void;
 }
 
 function formatCommentBody(comment: Comment) {
-  const body = comment.body || "";
+  const rawBody = comment.body || "";
 
-  if (comment.parentAuthorName) {
-    const cleanBody = body.replace(new RegExp(`^@${comment.parentAuthorName}\\s*`, "i"), "").trim();
+  // Strip any literal @undefined or @null strings
+  const cleanBody = rawBody
+    .replace(/@undefined\s*/gi, "")
+    .replace(/@null\s*/gi, "")
+    .trim();
+
+  if (
+    comment.parentAuthorName &&
+    comment.parentAuthorName !== "undefined" &&
+    comment.parentAuthorName !== "null"
+  ) {
+    const parentName = comment.parentAuthorName;
+    const escapedName = parentName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`^@${escapedName}\\s*`, "i");
+    const hasPrefix = regex.test(cleanBody);
+    const bodyWithoutPrefix = hasPrefix ? cleanBody.replace(regex, "") : cleanBody;
+
     return (
       <>
-        <span className="font-semibold text-primary hover:underline cursor-pointer mr-1">
-          @{comment.parentAuthorName}
+        <span className="font-bold text-primary hover:underline cursor-pointer mr-1">
+          @{parentName}
         </span>
-        {cleanBody || body}
+        {bodyWithoutPrefix}
       </>
     );
   }
 
-  if (body.startsWith("@")) {
-    const spaceIndex = body.indexOf(" ");
-    if (spaceIndex !== -1) {
-      const parts = body.split(/^(@[^\n\r]+?)(?=\s+(?:[a-z0-9\W]|sabay|thanks|thank|salamat|sakay|baba|tawid|mabilis|okay|ok|goods|hindi|oo|pa|na|ba|toy|po|din|rin|yung|ako|ikaw|mo|ko|to|ito|ano|saan|paano|mga|sa|ng|pala|kasi|dapat)|\s*$)/iu);
-      if (parts.length > 1) {
-        return (
-          <>
-            <span className="font-semibold text-primary hover:underline cursor-pointer">
-              {parts[1]}
-            </span>
-            {parts[2] || ""}
-          </>
-        );
-      }
+  const mentionMatch = cleanBody.match(/^(@[^\n\r]+?)(?=\s|$)/);
+  if (mentionMatch) {
+    const mentionText = mentionMatch[1];
+    if (mentionText !== "@undefined" && mentionText !== "@null") {
+      const restText = cleanBody.slice(mentionText.length);
+      return (
+        <>
+          <span className="font-bold text-primary hover:underline cursor-pointer mr-1">
+            {mentionText}
+          </span>
+          {restText}
+        </>
+      );
     }
   }
 
-  return body;
+  return cleanBody;
+}
+
+interface Level3ReplyItemProps {
+  subReply: Comment;
+  isPostOwner: boolean;
+  isCommentingDisabled?: boolean;
+  onLike: (replyId: string) => void;
+  onDelete?: (replyId: string) => void;
+  onInitiateReply: (targetAuthorName: string) => void;
+}
+
+function Level3ReplyItem({
+  subReply,
+  isPostOwner,
+  isCommentingDisabled = false,
+  onLike,
+  onDelete,
+  onInitiateReply,
+}: Level3ReplyItemProps) {
+  const { data: session, status } = useSession();
+  const { openGuestAuthModal } = useGuestAuthModal();
+  const loggedInUser = session?.user;
+
+  const [liked, setLiked] = useState(subReply.isLiked ?? false);
+  const [likesCount, setLikesCount] = useState(subReply.upvoteCount);
+
+  useEffect(() => {
+    setLiked(subReply.isLiked ?? false);
+    setLikesCount(subReply.upvoteCount);
+  }, [subReply.isLiked, subReply.upvoteCount]);
+
+  const canDelete =
+    isPostOwner ||
+    (loggedInUser?.id && subReply.author.id === loggedInUser.id) ||
+    (loggedInUser?.name && subReply.author.name === loggedInUser.name);
+
+  const toggleLike = async () => {
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Mag-like",
+        description: "Kailangan ng account para makapag-like ng sagot.",
+        icon: "heart",
+      });
+      return;
+    }
+    const next = !liked;
+    setLiked(next);
+    setLikesCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
+    onLike(subReply.id);
+
+    try {
+      await toggleAnswerVoteAction(subReply.id);
+    } catch (err) {
+      console.error("Error liking Level 3 reply:", err);
+    }
+  };
+
+  return (
+    <div className="relative flex items-start gap-2.5 sm:gap-3 pl-3 sm:pl-4">
+      {/* Level 3 Branch Elbow */}
+      <div className="absolute left-0 top-3.5 w-3 sm:w-4 h-3 border-l-2 border-b-2 border-border/60 rounded-bl-lg -translate-x-1/2" />
+
+      <UserHoverCard author={subReply.author}>
+        <Avatar className="h-6 w-6 sm:h-7 sm:w-7 border border-border/50 shrink-0 mt-0.5 z-10 ring-2 ring-background">
+          <AvatarImage src={subReply.author.avatarUrl} alt={subReply.author.name} />
+          <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-bold">
+            {(subReply.author.name || "C").substring(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+      </UserHoverCard>
+
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
+            <UserHoverCard author={subReply.author}>
+              <span className="text-xs sm:text-sm font-bold text-foreground hover:underline truncate">
+                {subReply.author.name}
+              </span>
+            </UserHoverCard>
+            <span className="text-[10px] text-muted-foreground/70 shrink-0" suppressHydrationWarning>
+              • {formatRelativeTime(subReply.createdAt)}
+            </span>
+          </div>
+
+          {canDelete && onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(subReply.id)}
+              className="flex items-center gap-1 text-muted-foreground/70 hover:text-rose-600 dark:hover:text-rose-400 transition-colors font-medium cursor-pointer group/cmt-delete shrink-0"
+              title="Delete reply"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-muted-foreground/70 group-hover/cmt-delete:text-rose-600" />
+              {/* <span className="text-[11px]">Delete</span> */}
+            </button>
+          )}
+        </div>
+
+        {/* Level 3 Body Text */}
+        <div className="py-0.5">
+          <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal break-words whitespace-pre-line">
+            {formatCommentBody(subReply)}
+          </p>
+        </div>
+
+        {/* Level 3 Action Buttons */}
+        <div className="flex items-center gap-3 pt-0.5 text-xs">
+          <LikeButton
+            count={likesCount}
+            isLiked={liked}
+            onLike={toggleLike}
+            variant="comment"
+            size="sm"
+          />
+
+          {!isCommentingDisabled && (
+            <button
+              type="button"
+              onClick={() => onInitiateReply(subReply.author.name)}
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors font-medium cursor-pointer group/cmt-reply"
+              title="Reply to comment"
+            >
+              <MessageCircle className="w-3.5 h-3.5 transition-transform group-hover/cmt-reply:scale-110" />
+              <span>Reply</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface SubReplyItemProps {
+  reply: Comment;
+  postAuthorId?: string;
+  postAuthorName?: string;
+  isCommentingDisabled?: boolean;
+  onLike: (replyId: string) => void;
+  onDelete?: (replyId: string) => void;
+  onInitiateReply: (targetAuthorName: string) => void;
+  activeReplyThreadId: string | null;
+  targetMentionAuthor: string | null;
+  setTargetMentionAuthor: (authorName: string | null) => void;
+  replyText: string;
+  setReplyText: (text: string) => void;
+  onReplySubmit: (parentId: string, authorName?: string) => void;
+}
+
+function SubReplyItem({
+  reply,
+  postAuthorId,
+  postAuthorName,
+  isCommentingDisabled = false,
+  onLike,
+  onDelete,
+  onInitiateReply,
+  activeReplyThreadId,
+  targetMentionAuthor,
+  setTargetMentionAuthor,
+  replyText,
+  setReplyText,
+  onReplySubmit,
+}: SubReplyItemProps) {
+  const { data: session, status } = useSession();
+  const { openGuestAuthModal } = useGuestAuthModal();
+  const loggedInUser = session?.user;
+  const userImage = loggedInUser?.image || "/logo.png";
+  const userName = loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
+  const userInitials = (userName[0] || "C").toUpperCase();
+
+  const [liked, setLiked] = useState(reply.isLiked ?? false);
+  const [likesCount, setLikesCount] = useState(reply.upvoteCount);
+  const subInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLiked(reply.isLiked ?? false);
+    setLikesCount(reply.upvoteCount);
+  }, [reply.isLiked, reply.upvoteCount]);
+
+  const isReplyOwner =
+    (loggedInUser?.id && reply.author.id === loggedInUser.id) ||
+    (loggedInUser?.name && reply.author.name === loggedInUser.name);
+
+  const isPostOwner =
+    (loggedInUser?.id && postAuthorId && postAuthorId === loggedInUser.id) ||
+    (loggedInUser?.name && postAuthorName && postAuthorName === loggedInUser.name);
+
+  const canDelete = isReplyOwner || isPostOwner;
+
+  const toggleLike = async () => {
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Mag-like",
+        description: "Kailangan ng account para makapag-like ng sagot.",
+        icon: "heart",
+      });
+      return;
+    }
+    const next = !liked;
+    setLiked(next);
+    setLikesCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
+    onLike(reply.id);
+
+    try {
+      await toggleAnswerVoteAction(reply.id);
+    } catch (err) {
+      console.error("Error liking reply:", err);
+    }
+  };
+
+  const isSubThreadActive = activeReplyThreadId === reply.id;
+
+  const handleSubFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+    onReplySubmit(reply.id, targetMentionAuthor || undefined);
+  };
+
+  return (
+    <div className="space-y-2 relative">
+      {/* Level 2 Reply Item */}
+      <div className="relative flex items-start gap-2.5 sm:gap-3 pl-3 sm:pl-4">
+        {/* Curved Branch Line (L-shaped elbow) */}
+        <div className="absolute left-0 top-3.5 w-3 sm:w-4 h-3 border-l-2 border-b-2 border-border/70 rounded-bl-lg -translate-x-1/2" />
+
+        <UserHoverCard author={reply.author}>
+          <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border/50 shrink-0 mt-0.5 z-10 ring-2 ring-background">
+            <AvatarImage src={reply.author.avatarUrl} alt={reply.author.name} />
+            <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-bold">
+              {(reply.author.name || "C").substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        </UserHoverCard>
+
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
+              <UserHoverCard author={reply.author}>
+                <span className="text-xs sm:text-sm font-bold text-foreground hover:underline truncate">
+                  {reply.author.name}
+                </span>
+              </UserHoverCard>
+              <span className="text-[10px] text-muted-foreground/70 shrink-0" suppressHydrationWarning>
+                • {formatRelativeTime(reply.createdAt)}
+              </span>
+            </div>
+
+            {canDelete && onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(reply.id)}
+                className="flex items-center gap-1 text-muted-foreground/70 hover:text-rose-600 dark:hover:text-rose-400 transition-colors font-medium cursor-pointer group/cmt-delete shrink-0"
+                title="Delete reply"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-muted-foreground/70 group-hover/cmt-delete:text-rose-600" />
+                {/* <span className="text-[11px]">Delete</span> */}
+              </button>
+            )}
+          </div>
+
+          {/* Reply Body Text */}
+          <div className="py-0.5">
+            <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal break-words whitespace-pre-line">
+              {formatCommentBody(reply)}
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3 pt-0.5 text-xs">
+            <LikeButton
+              count={likesCount}
+              isLiked={liked}
+              onLike={toggleLike}
+              variant="comment"
+              size="sm"
+            />
+
+            {!isCommentingDisabled && (
+              <button
+                type="button"
+                onClick={() => onInitiateReply(reply.author.name)}
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors font-medium cursor-pointer group/cmt-reply"
+                title="Reply to comment"
+              >
+                <MessageCircle className="w-3.5 h-3.5 transition-transform group-hover/cmt-reply:scale-110" />
+                <span>Reply</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Level 3 Indented Thread (Nested Replies & Inline Form under Level 2 Comment) */}
+      {((reply.replies && reply.replies.length > 0) || isSubThreadActive) && (
+        <div className="pl-6 sm:pl-7 ml-4 sm:ml-5 relative space-y-3 pt-1">
+          {/* Level 3 Vertical Thread Line */}
+          <div className="absolute left-0 top-0 bottom-4 w-[2px] bg-border/60 -translate-x-1/2" />
+
+          {/* Level 3 Sub-Reply Items */}
+          {reply.replies &&
+            reply.replies.map((subReply) => (
+              <Level3ReplyItem
+                key={subReply.id}
+                subReply={subReply}
+                isPostOwner={!!isPostOwner}
+                isCommentingDisabled={isCommentingDisabled}
+                onLike={onLike}
+                onDelete={onDelete}
+                onInitiateReply={onInitiateReply}
+              />
+            ))}
+
+          {/* Level 3 Inline Reply Field */}
+          {isSubThreadActive && !isCommentingDisabled && (
+            <div className="relative flex items-center gap-2 pl-3 sm:pl-4 pt-1">
+              <div className="absolute left-0 top-4 w-3 sm:w-4 h-3 border-l-2 border-b-2 border-border/60 rounded-bl-lg -translate-x-1/2" />
+
+              <Avatar className="h-6 w-6 border border-border shrink-0 z-10 ring-2 ring-background">
+                <AvatarImage src={userImage} alt={userName} />
+                <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-bold">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+
+              <form
+                onSubmit={handleSubFormSubmit}
+                className="flex-1 bg-muted/40 dark:bg-muted/30 text-xs px-3 py-1 text-foreground rounded-full border border-border/80 focus-within:border-primary flex items-center gap-1.5 transition-all min-w-0"
+              >
+                {targetMentionAuthor && (
+                  <span className="inline-flex items-center gap-1 bg-primary/15 text-primary font-semibold text-[11px] px-2 py-0.5 rounded-full shrink-0 select-none">
+                    @{targetMentionAuthor}
+                    <button
+                      type="button"
+                      onClick={() => setTargetMentionAuthor(null)}
+                      className="hover:bg-primary/20 rounded-full p-0.5 transition-colors cursor-pointer text-primary"
+                      title="Remove mention"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+
+                <input
+                  ref={subInputRef}
+                  type="text"
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder={`Reply as ${userName}...`}
+                  className="flex-1 bg-transparent text-xs py-1 focus:outline-none placeholder:text-muted-foreground/70 min-w-0"
+                  autoFocus
+                />
+
+                <button
+                  type="submit"
+                  disabled={!replyText.trim()}
+                  className={cn(
+                    "p-1.5 rounded-full text-primary hover:bg-primary/10 transition-colors shrink-0",
+                    !replyText.trim() && "opacity-40 cursor-not-allowed"
+                  )}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CommentItem({
   comment,
   postAuthorId,
   postAuthorName,
-  isMother = false,
   isCommentingDisabled = false,
   onLike,
   onDelete,
-  replyingToId,
-  setReplyingToId,
+  activeReplyThreadId,
+  setActiveReplyThreadId,
+  targetMentionAuthor,
+  setTargetMentionAuthor,
   replyText,
   setReplyText,
   onReplySubmit,
@@ -128,8 +512,7 @@ function CommentItem({
 
   const [liked, setLiked] = useState(comment.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(comment.upvoteCount);
-  const [showReplies, setShowReplies] = useState(false);
-  const [includeMention, setIncludeMention] = useState(true);
+  const replyInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLiked(comment.isLiked ?? false);
@@ -170,18 +553,52 @@ function CommentItem({
     }
   };
 
-  const isReplying = replyingToId === comment.id;
+  const handleReplyMother = () => {
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Mag-reply",
+        description: "Kailangan ng account para makapag-reply sa sagot.",
+        icon: "lock",
+      });
+      return;
+    }
+    if (activeReplyThreadId === comment.id && targetMentionAuthor === comment.author.name) {
+      setActiveReplyThreadId(null);
+      setTargetMentionAuthor(null);
+    } else {
+      setActiveReplyThreadId(comment.id);
+      setTargetMentionAuthor(comment.author.name);
+      setTimeout(() => replyInputRef.current?.focus(), 50);
+    }
+  };
+
+  const handleReplySubChild = (childReplyId: string, childAuthorName: string) => {
+    if (status !== "authenticated") {
+      openGuestAuthModal({
+        title: "Mag-sign In Para Mag-reply",
+        description: "Kailangan ng account para makapag-reply sa sagot.",
+        icon: "lock",
+      });
+      return;
+    }
+    setActiveReplyThreadId(childReplyId);
+    setTargetMentionAuthor(childAuthorName);
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+    onReplySubmit(comment.id, targetMentionAuthor || undefined);
+  };
+
+  const isThreadActive = activeReplyThreadId === comment.id;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-start gap-3">
+    <div className="space-y-3 relative hover:z-30">
+      {/* Mother Comment Header & Bubble */}
+      <div className="flex items-start gap-2.5 sm:gap-3 relative">
         <UserHoverCard author={comment.author}>
-          <Avatar
-            className={cn(
-              "border border-border/50 shrink-0 mt-0.5",
-              isMother ? "h-8 w-8 sm:h-9 sm:w-9" : "h-7 w-7 sm:h-8 sm:w-8"
-            )}
-          >
+          <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border/50 shrink-0 mt-0.5 ring-2 ring-background">
             <AvatarImage
               src={comment.author.avatarUrl}
               alt={comment.author.name}
@@ -211,7 +628,6 @@ function CommentItem({
               )}
             </div>
 
-            {/* Delete Button (Allowed ONLY for Comment Owner or Post Owner) */}
             {canDelete && onDelete && (
               <button
                 type="button"
@@ -220,32 +636,32 @@ function CommentItem({
                 title="Delete answer"
               >
                 <Trash2 className="w-3.5 h-3.5 text-muted-foreground/70 group-hover/cmt-delete:text-rose-600" />
-                <span className="text-[11px]">Delete</span>
+                {/* <span className="text-[11px]">Delete</span> */}
               </button>
             )}
           </div>
 
           {/* Comment Body Text */}
-          <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal pt-0.5 break-words whitespace-pre-line">
-            {formatCommentBody(comment)}
-          </p>
+          <div className="py-0.5">
+            <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal break-words whitespace-pre-line">
+              {formatCommentBody(comment)}
+            </p>
+          </div>
 
-          {/* Comment Actions: Heart Like & Reply */}
-          <div className="flex items-center gap-3 pt-1 text-xs">
-            {/* Reusable LikeButton Component */}
+          {/* Comment Actions: Like & Reply */}
+          <div className="flex items-center gap-3 pt-0.5 text-xs">
             <LikeButton
               count={likesCount}
               isLiked={liked}
               onLike={toggleLike}
               variant="comment"
-              size={isMother ? "md" : "sm"}
+              size="md"
             />
 
-            {/* Reply Button (Only for Mother Comments when commenting is enabled) */}
-            {isMother && !isCommentingDisabled && (
+            {!isCommentingDisabled && (
               <button
                 type="button"
-                onClick={() => setReplyingToId(isReplying ? null : comment.id)}
+                onClick={handleReplyMother}
                 className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors font-medium cursor-pointer group/cmt-reply"
                 title="Reply to comment"
               >
@@ -254,32 +670,59 @@ function CommentItem({
               </button>
             )}
           </div>
+        </div>
+      </div>
 
-          {/* Inline Reply Form */}
-          {isReplying && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                onReplySubmit(comment.id, includeMention ? comment.author.name : undefined);
-              }}
-              className="mt-2.5 pt-2 flex items-center gap-2"
-            >
-              <Avatar className="h-7 w-7 border border-border shrink-0">
-                <AvatarImage
-                  src={userImage}
-                  alt={userName}
-                />
+      {/* Indented Thread Replies Container with Visual Connector Line & Curved Elbows */}
+      {((comment.replies && comment.replies.length > 0) || isThreadActive) && (
+        <div className="pl-4 sm:pl-4.5 ml-4 sm:ml-4.5 relative space-y-3 pt-1">
+          {/* Continuous Vertical Thread Connector Line */}
+          <div className="absolute left-0 top-0 bottom-4 w-[2px] bg-border/70 -translate-x-1/2" />
+
+          {/* Level 2 Child Reply Items */}
+          {comment.replies &&
+            comment.replies.map((reply) => (
+              <SubReplyItem
+                key={reply.id}
+                reply={reply}
+                postAuthorId={postAuthorId}
+                postAuthorName={postAuthorName}
+                isCommentingDisabled={isCommentingDisabled}
+                onLike={onLike}
+                onDelete={onDelete}
+                onInitiateReply={(targetAuthorName) => handleReplySubChild(reply.id, targetAuthorName)}
+                activeReplyThreadId={activeReplyThreadId}
+                targetMentionAuthor={targetMentionAuthor}
+                setTargetMentionAuthor={setTargetMentionAuthor}
+                replyText={replyText}
+                setReplyText={setReplyText}
+                onReplySubmit={onReplySubmit}
+              />
+            ))}
+
+          {/* Thread Inline Reply Form ("Reply as [User]") */}
+          {isThreadActive && !isCommentingDisabled && (
+            <div className="relative flex items-center gap-2 pl-3 sm:pl-4 pt-1">
+              {/* Curved Branch Elbow for Reply Input */}
+              <div className="absolute left-0 top-4 w-3 sm:w-4 h-3 border-l-2 border-b-2 border-border/70 rounded-bl-lg -translate-x-1/2" />
+
+              <Avatar className="h-7 w-7 border border-border shrink-0 z-10 ring-2 ring-background">
+                <AvatarImage src={userImage} alt={userName} />
                 <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-bold">
                   {userInitials}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 bg-muted/40 text-xs px-3 py-1 text-foreground rounded-full border border-border/80 focus-within:border-primary flex items-center gap-1.5 transition-all min-w-0">
-                {includeMention && (
+
+              <form
+                onSubmit={handleFormSubmit}
+                className="flex-1 bg-muted/40 dark:bg-muted/30 text-xs px-3 py-1.5 text-foreground rounded-full border border-border/80 focus-within:border-primary flex items-center gap-1.5 transition-all min-w-0"
+              >
+                {targetMentionAuthor && (
                   <span className="inline-flex items-center gap-1 bg-primary/15 text-primary font-semibold text-[11px] px-2 py-0.5 rounded-full shrink-0 select-none">
-                    @{comment.author.name}
+                    @{targetMentionAuthor}
                     <button
                       type="button"
-                      onClick={() => setIncludeMention(false)}
+                      onClick={() => setTargetMentionAuthor(null)}
                       className="hover:bg-primary/20 rounded-full p-0.5 transition-colors cursor-pointer text-primary"
                       title="Remove mention tag"
                     >
@@ -287,59 +730,28 @@ function CommentItem({
                     </button>
                   </span>
                 )}
+
                 <input
+                  ref={replyInputRef}
                   type="text"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder={includeMention ? "Write a reply..." : `Reply to @${comment.author.name}...`}
+                  placeholder={`Reply as ${userName}...`}
                   className="flex-1 bg-transparent text-xs py-1 focus:outline-none placeholder:text-muted-foreground/70 min-w-0"
                   autoFocus
                 />
-              </div>
-              <button
-                type="submit"
-                disabled={!replyText.trim()}
-                className={cn(
-                  "p-1.5 rounded-full text-primary hover:bg-primary/10 transition-colors shrink-0",
-                  !replyText.trim() && "opacity-40 cursor-not-allowed"
-                )}
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
 
-      {/* Nested Child Replies Toggle & Tree */}
-      {comment.replies && comment.replies.length > 0 && (
-        <div className="space-y-2 pt-1 pl-11">
-          <button
-            type="button"
-            onClick={() => setShowReplies((prev) => !prev)}
-            className="text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 cursor-pointer transition-colors"
-          >
-            <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showReplies && "rotate-180")} />
-            {showReplies
-              ? "Hide replies"
-              : `View ${comment.replies.length} ${comment.replies.length === 1 ? "reply" : "replies"}`}
-          </button>
-
-          {showReplies && (
-            <div className="border-l-2 border-border/40 space-y-2 pt-1 pl-3 sm:pl-4">
-              {comment.replies.map((reply) => (
-                <CommentItem
-                  key={reply.id}
-                  comment={reply}
-                  isMother={false}
-                  onLike={onLike}
-                  replyingToId={replyingToId}
-                  setReplyingToId={setReplyingToId}
-                  replyText={replyText}
-                  setReplyText={setReplyText}
-                  onReplySubmit={onReplySubmit}
-                />
-              ))}
+                <button
+                  type="submit"
+                  disabled={!replyText.trim()}
+                  className={cn(
+                    "p-1.5 rounded-full text-primary hover:bg-primary/10 transition-colors shrink-0",
+                    !replyText.trim() && "opacity-40 cursor-not-allowed"
+                  )}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </form>
             </div>
           )}
         </div>
@@ -417,7 +829,8 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
   const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
   const [isExpanded, setIsExpanded] = useState(isHighlighted);
   const [newComment, setNewComment] = useState("");
-  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [activeReplyThreadId, setActiveReplyThreadId] = useState<string | null>(null);
+  const [targetMentionAuthor, setTargetMentionAuthor] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
 
   useEffect(() => {
@@ -571,15 +984,30 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
 
     const currentText = replyText.trim();
     setReplyText("");
-    setReplyingToId(null);
+    setActiveReplyThreadId(null);
+    setTargetMentionAuthor(null);
 
-    const finalBodyText = parentAuthorName ? `@${parentAuthorName} ${currentText}` : currentText;
+    const validParentAuthorName =
+      parentAuthorName && parentAuthorName !== "undefined" && parentAuthorName !== "null"
+        ? parentAuthorName
+        : undefined;
+
+    let finalBodyText = currentText;
+    if (validParentAuthorName) {
+      const escapedName = validParentAuthorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const hasPrefix = new RegExp(`^@${escapedName}\\s*`, "i").test(currentText);
+      if (!hasPrefix) {
+        finalBodyText = `@${validParentAuthorName} ${currentText}`;
+      }
+    }
+
+    finalBodyText = finalBodyText.replace(/@undefined\s*/gi, "").replace(/@null\s*/gi, "").trim();
 
     const createdReply: Comment = {
       id: `reply-${Date.now()}`,
       postId: post.id,
       parentId: parentId,
-      parentAuthorName: parentAuthorName,
+      parentAuthorName: validParentAuthorName,
       author: {
         id: loggedInUser?.id || "usr-current",
         name: currentUserName,
@@ -619,7 +1047,7 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
       const res = await createAnswerAction({
         postId: post.id,
         parentId: parentId,
-        body: `@${parentAuthorName} ${currentText}`,
+        body: finalBodyText,
       });
       if (res.success) {
         router.refresh();
@@ -629,7 +1057,29 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
     }
   };
 
-  const handleCommentUpvote = (commentId: string) => { };
+  const handleCommentUpvote = (commentId: string) => {
+    const updateLikeRecursively = (list: Comment[]): Comment[] => {
+      return list.map((item) => {
+        if (item.id === commentId) {
+          const nextIsLiked = !item.isLiked;
+          return {
+            ...item,
+            isLiked: nextIsLiked,
+            upvoteCount: nextIsLiked ? item.upvoteCount + 1 : Math.max(0, item.upvoteCount - 1),
+          };
+        }
+        if (item.replies && item.replies.length > 0) {
+          return {
+            ...item,
+            replies: updateLikeRecursively(item.replies),
+          };
+        }
+        return item;
+      });
+    };
+
+    setPostComments((prev) => updateLikeRecursively(prev));
+  };
 
   const sortedMotherComments = [...postComments].sort((a, b) => {
     // Tier 1: Verified Best Answer first (pinned to top)
@@ -835,15 +1285,20 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
                     comment={topMotherComment}
                     postAuthorId={post.author.id}
                     postAuthorName={post.author.name}
-                    isMother={true}
                     isCommentingDisabled={isCommentingDisabled}
                     onLike={handleCommentUpvote}
                     onDelete={requestDeleteComment}
-                    replyingToId={replyingToId}
-                    setReplyingToId={setReplyingToId}
+                    activeReplyThreadId={activeReplyThreadId}
+                    setActiveReplyThreadId={setActiveReplyThreadId}
+                    targetMentionAuthor={targetMentionAuthor}
+                    setTargetMentionAuthor={setTargetMentionAuthor}
                     replyText={replyText}
                     setReplyText={setReplyText}
-                    onReplySubmit={handleReplySubmit}
+                    onReplySubmit={(motherId, authorName) => {
+                      handleReplySubmit(motherId, authorName);
+                      setActiveReplyThreadId(null);
+                      setTargetMentionAuthor(null);
+                    }}
                   />
 
                   {isExpanded && remainingMotherComments.length > 0 && (
@@ -854,15 +1309,20 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
                           comment={motherComment}
                           postAuthorId={post.author.id}
                           postAuthorName={post.author.name}
-                          isMother={true}
                           isCommentingDisabled={isCommentingDisabled}
                           onLike={handleCommentUpvote}
                           onDelete={requestDeleteComment}
-                          replyingToId={replyingToId}
-                          setReplyingToId={setReplyingToId}
+                          activeReplyThreadId={activeReplyThreadId}
+                          setActiveReplyThreadId={setActiveReplyThreadId}
+                          targetMentionAuthor={targetMentionAuthor}
+                          setTargetMentionAuthor={setTargetMentionAuthor}
                           replyText={replyText}
                           setReplyText={setReplyText}
-                          onReplySubmit={handleReplySubmit}
+                          onReplySubmit={(motherId, authorName) => {
+                            handleReplySubmit(motherId, authorName);
+                            setActiveReplyThreadId(null);
+                            setTargetMentionAuthor(null);
+                          }}
                         />
                       ))}
                     </div>
@@ -907,7 +1367,7 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
                     onSubmit={handleCommentSubmit}
                     userImage={currentUserImage}
                     userName={currentUserName}
-                    placeholder="Write an answer or commute route guide..."
+                    placeholder={`Answer as ${currentUserName}...`}
                     submitButtonText="Post Answer"
                   />
                 </div>
