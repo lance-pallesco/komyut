@@ -49,6 +49,25 @@ export async function toggleVoteAction(postId: string) {
       });
       newCount = post.upvoteCount + 1;
       isVoted = true;
+
+      // Trigger Notification for Post Author on Upvote / Like
+      if (post.authorId && post.authorId !== userId) {
+        const voter = await prisma.user.findUnique({ where: { id: userId } });
+        const voterName = voter?.name || "A commuter";
+        const routeTitle = `"${post.origin} → ${post.destination}"`;
+
+        await prisma.notification.create({
+          data: {
+            userId: post.authorId,
+            actorId: userId,
+            type: "UPVOTE",
+            title: "Your question received a like!",
+            message: `${voterName} liked your question on ${routeTitle}`,
+            link: `/feed?post=${postId}`,
+            isRead: false,
+          },
+        });
+      }
     }
 
     await prisma.post.update({

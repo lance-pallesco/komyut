@@ -12,6 +12,90 @@ export interface GetFeedPostsOptions {
   postId?: string;
 }
 
+function buildCommentTree(allAnswers: any[], votedAnswerIds: Set<string>): Comment[] {
+  const authorMap = new Map<string, string>();
+  for (const ans of allAnswers) {
+    authorMap.set(ans.id, ans.author.name || ans.author.username);
+  }
+
+  const mapAnswerToComment = (ans: any, explicitParentAuthorName?: string): Comment => {
+    let pName = explicitParentAuthorName;
+    if (pName === "undefined" || pName === "null") {
+      pName = undefined;
+    }
+
+    return {
+      id: ans.id,
+      postId: ans.postId,
+      parentId: ans.parentId || undefined,
+      parentAuthorName: pName,
+      author: {
+        id: ans.author.id,
+        name: ans.author.name || ans.author.username,
+        username: ans.author.username,
+        avatarUrl: ans.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        coverUrl: ans.author.coverUrl || undefined,
+        homeArea: ans.author.homeArea || undefined,
+        reputationPoints: ans.author.reputationPoints || 100,
+        verifiedAnswersCount: ans.author.verifiedAnswersCount || 0,
+      },
+      body: (ans.body || "").replace(/@undefined\s*/gi, "").replace(/@null\s*/gi, "").trim(),
+      createdAt: ans.createdAt.toISOString(),
+      upvoteCount: ans.upvoteCount,
+      isVerified: ans.isVerified,
+      isLiked: votedAnswerIds.has(ans.id),
+      replies: [],
+    };
+  };
+
+  // Level 1: Mother comments (parentId == null)
+  const motherAnswers = allAnswers.filter((ans) => !ans.parentId);
+  motherAnswers.sort((a, b) => {
+    if (a.isVerified !== b.isVerified) return a.isVerified ? -1 : 1;
+    if (a.upvoteCount !== b.upvoteCount) return b.upvoteCount - a.upvoteCount;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  // Only answers that have a parentId are candidates for Level 2 & Level 3
+  const childAnswers = allAnswers.filter((ans) => !!ans.parentId);
+
+  return motherAnswers.map((motherAns) => {
+    const motherComment = mapAnswerToComment(motherAns);
+
+    // Level 2: Direct replies to this Mother Comment
+    const level2Answers = childAnswers.filter((ans) => ans.parentId === motherAns.id);
+    level2Answers.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    motherComment.replies = level2Answers.map((l2Ans) => {
+      const mName = motherAns.author.name || motherAns.author.username;
+      const escapedMName = mName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const hasL2Mention = (l2Ans.body || "").startsWith("@") || new RegExp(`^@${escapedMName}\\b`, "i").test(l2Ans.body || "");
+      const l2ParentAuthorName = hasL2Mention ? mName : undefined;
+
+      const l2Comment = mapAnswerToComment(l2Ans, l2ParentAuthorName);
+
+      // Level 3: Replies to this Level 2 comment
+      const level3Answers = childAnswers.filter((ans) => ans.parentId === l2Ans.id);
+      level3Answers.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      l2Comment.replies = level3Answers.map((l3Ans) => {
+        const rawParentName = l3Ans.parentId ? authorMap.get(l3Ans.parentId) : l2Ans.author.name;
+        let l3ParentAuthorName: string | undefined = undefined;
+        if (rawParentName) {
+          const escapedPName = rawParentName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const hasL3Mention = (l3Ans.body || "").startsWith("@") || new RegExp(`^@${escapedPName}\\b`, "i").test(l3Ans.body || "");
+          l3ParentAuthorName = hasL3Mention ? rawParentName : undefined;
+        }
+        return mapAnswerToComment(l3Ans, l3ParentAuthorName);
+      });
+
+      return l2Comment;
+    });
+
+    return motherComment;
+  });
+}
+
 export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): Promise<Post[]> {
   const opts: GetFeedPostsOptions =
     typeof options === "string" ? { userId: options } : options;
@@ -109,25 +193,15 @@ export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): 
           include: { tag: true },
         },
         answers: {
-          where: { parentId: null },
-          orderBy: [
-            { isVerified: "desc" },
-            { upvoteCount: "desc" },
-            { createdAt: "desc" },
-          ],
+          orderBy: { createdAt: "asc" },
           include: {
             author: true,
-            replies: {
-              include: { author: true },
-              orderBy: { createdAt: "asc" },
-            },
           },
         },
       },
     });
 
     if (!dbPosts || dbPosts.length === 0) {
-      // If user performed an active search query or tag filter, return empty array for 0 matches
       if ((query && query.trim()) || (tagFilter && tagFilter.trim())) {
         return [];
       }
@@ -141,47 +215,8 @@ export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): 
       const customAndAreaTags = p.tags
         .filter((t) => t.tag.type === "AREA" || t.tag.type === "CUSTOM")
         .map((t) => t.tag.name);
-      const comments: Comment[] = p.answers.map((ans) => ({
-        id: ans.id,
-        postId: ans.postId,
-        parentId: ans.parentId || undefined,
-        author: {
-          id: ans.author.id,
-          name: ans.author.name || ans.author.username,
-          username: ans.author.username,
-          avatarUrl: ans.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-          coverUrl: ans.author.coverUrl || undefined,
-          homeArea: ans.author.homeArea || undefined,
-          reputationPoints: ans.author.reputationPoints || 100,
-          verifiedAnswersCount: ans.author.verifiedAnswersCount || 0,
-        },
-        body: ans.body,
-        createdAt: ans.createdAt.toISOString(),
-        upvoteCount: ans.upvoteCount,
-        isVerified: ans.isVerified,
-        isLiked: votedAnswerIds.has(ans.id),
-        replies: ans.replies.map((rep) => ({
-          id: rep.id,
-          postId: rep.postId,
-          parentId: rep.parentId || undefined,
-          parentAuthorName: ans.author.name || ans.author.username,
-          author: {
-            id: rep.author.id,
-            name: rep.author.name || rep.author.username,
-            username: rep.author.username,
-            avatarUrl: rep.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-            coverUrl: rep.author.coverUrl || undefined,
-            homeArea: rep.author.homeArea || undefined,
-            reputationPoints: rep.author.reputationPoints || 100,
-            verifiedAnswersCount: rep.author.verifiedAnswersCount || 0,
-          },
-          body: rep.body,
-          createdAt: rep.createdAt.toISOString(),
-          upvoteCount: rep.upvoteCount,
-          isVerified: rep.isVerified,
-          isLiked: votedAnswerIds.has(rep.id),
-        })),
-      }));
+
+      const comments: Comment[] = buildCommentTree(p.answers, votedAnswerIds);
 
       const authorObj = p.isAnonymous
         ? {
@@ -268,18 +303,9 @@ export async function getSavedPosts(userId: string): Promise<Post[]> {
               include: { tag: true },
             },
             answers: {
-              where: { parentId: null },
-              orderBy: [
-                { isVerified: "desc" },
-                { upvoteCount: "desc" },
-                { createdAt: "desc" },
-              ],
+              orderBy: { createdAt: "asc" },
               include: {
                 author: true,
-                replies: {
-                  include: { author: true },
-                  orderBy: { createdAt: "asc" },
-                },
               },
             },
           },
@@ -300,43 +326,7 @@ export async function getSavedPosts(userId: string): Promise<Post[]> {
         .filter((t) => t.tag.type === "AREA" || t.tag.type === "CUSTOM")
         .map((t) => t.tag.name);
 
-      const comments: Comment[] = p.answers.map((ans) => ({
-        id: ans.id,
-        postId: ans.postId,
-        parentId: ans.parentId || undefined,
-        author: {
-          id: ans.author.id,
-          name: ans.author.name || ans.author.username,
-          username: ans.author.username,
-          avatarUrl: ans.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-          reputationPoints: ans.author.reputationPoints || 100,
-          verifiedAnswersCount: ans.author.verifiedAnswersCount || 0,
-        },
-        body: ans.body,
-        createdAt: ans.createdAt.toISOString(),
-        upvoteCount: ans.upvoteCount,
-        isVerified: ans.isVerified,
-        isLiked: votedAnswerIds.has(ans.id),
-        replies: ans.replies.map((rep) => ({
-          id: rep.id,
-          postId: rep.postId,
-          parentId: rep.parentId || undefined,
-          parentAuthorName: ans.author.name || ans.author.username,
-          author: {
-            id: rep.author.id,
-            name: rep.author.name || rep.author.username,
-            username: rep.author.username,
-            avatarUrl: rep.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-            reputationPoints: rep.author.reputationPoints || 100,
-            verifiedAnswersCount: rep.author.verifiedAnswersCount || 0,
-          },
-          body: rep.body,
-          createdAt: rep.createdAt.toISOString(),
-          upvoteCount: rep.upvoteCount,
-          isVerified: rep.isVerified,
-          isLiked: votedAnswerIds.has(rep.id),
-        })),
-      }));
+      const comments: Comment[] = buildCommentTree(p.answers, votedAnswerIds);
 
       const authorObj = p.isAnonymous
         ? {
@@ -408,18 +398,9 @@ export async function getUserQuestions(userId: string): Promise<Post[]> {
           include: { tag: true },
         },
         answers: {
-          where: { parentId: null },
-          orderBy: [
-            { isVerified: "desc" },
-            { upvoteCount: "desc" },
-            { createdAt: "desc" },
-          ],
+          orderBy: { createdAt: "asc" },
           include: {
             author: true,
-            replies: {
-              include: { author: true },
-              orderBy: { createdAt: "asc" },
-            },
           },
         },
       },
@@ -437,43 +418,7 @@ export async function getUserQuestions(userId: string): Promise<Post[]> {
         .filter((t) => t.tag.type === "AREA" || t.tag.type === "CUSTOM")
         .map((t) => t.tag.name);
 
-      const comments: Comment[] = p.answers.map((ans) => ({
-        id: ans.id,
-        postId: ans.postId,
-        parentId: ans.parentId || undefined,
-        author: {
-          id: ans.author.id,
-          name: ans.author.name || ans.author.username,
-          username: ans.author.username,
-          avatarUrl: ans.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-          reputationPoints: ans.author.reputationPoints || 100,
-          verifiedAnswersCount: ans.author.verifiedAnswersCount || 0,
-        },
-        body: ans.body,
-        createdAt: ans.createdAt.toISOString(),
-        upvoteCount: ans.upvoteCount,
-        isVerified: ans.isVerified,
-        isLiked: votedAnswerIds.has(ans.id),
-        replies: ans.replies.map((rep) => ({
-          id: rep.id,
-          postId: rep.postId,
-          parentId: rep.parentId || undefined,
-          parentAuthorName: ans.author.name || ans.author.username,
-          author: {
-            id: rep.author.id,
-            name: rep.author.name || rep.author.username,
-            username: rep.author.username,
-            avatarUrl: rep.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-            reputationPoints: rep.author.reputationPoints || 100,
-            verifiedAnswersCount: rep.author.verifiedAnswersCount || 0,
-          },
-          body: rep.body,
-          createdAt: rep.createdAt.toISOString(),
-          upvoteCount: rep.upvoteCount,
-          isVerified: rep.isVerified,
-          isLiked: votedAnswerIds.has(rep.id),
-        })),
-      }));
+      const comments: Comment[] = buildCommentTree(p.answers, votedAnswerIds);
 
       const authorObj = p.isAnonymous
         ? {
@@ -534,11 +479,9 @@ export async function getPostById(postId: string, userId?: string): Promise<Post
         author: true,
         tags: { include: { tag: true } },
         answers: {
-          where: { parentId: null },
-          orderBy: [{ isVerified: "desc" }, { upvoteCount: "desc" }, { createdAt: "desc" }],
+          orderBy: { createdAt: "asc" },
           include: {
             author: true,
-            replies: { include: { author: true }, orderBy: { createdAt: "asc" } },
           },
         },
       },
@@ -559,47 +502,7 @@ export async function getPostById(postId: string, userId?: string): Promise<Post
       .filter((t) => t.tag.type === "AREA" || t.tag.type === "CUSTOM")
       .map((t) => t.tag.name);
 
-    const comments: Comment[] = single.answers.map((ans) => ({
-      id: ans.id,
-      postId: ans.postId,
-      parentId: ans.parentId || undefined,
-      author: {
-        id: ans.author.id,
-        name: ans.author.name || ans.author.username,
-        username: ans.author.username,
-        avatarUrl: ans.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-        coverUrl: ans.author.coverUrl || undefined,
-        homeArea: ans.author.homeArea || undefined,
-        reputationPoints: ans.author.reputationPoints || 100,
-        verifiedAnswersCount: ans.author.verifiedAnswersCount || 0,
-      },
-      body: ans.body,
-      createdAt: ans.createdAt.toISOString(),
-      upvoteCount: ans.upvoteCount,
-      isVerified: ans.isVerified,
-      isLiked: votedAnswerIds.has(ans.id),
-      replies: ans.replies.map((rep) => ({
-        id: rep.id,
-        postId: rep.postId,
-        parentId: rep.parentId || undefined,
-        parentAuthorName: ans.author.name || ans.author.username,
-        author: {
-          id: rep.author.id,
-          name: rep.author.name || rep.author.username,
-          username: rep.author.username,
-          avatarUrl: rep.author.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-          coverUrl: rep.author.coverUrl || undefined,
-          homeArea: rep.author.homeArea || undefined,
-          reputationPoints: rep.author.reputationPoints || 100,
-          verifiedAnswersCount: rep.author.verifiedAnswersCount || 0,
-        },
-        body: rep.body,
-        createdAt: rep.createdAt.toISOString(),
-        upvoteCount: rep.upvoteCount,
-        isVerified: rep.isVerified,
-        isLiked: votedAnswerIds.has(rep.id),
-      })),
-    }));
+    const comments: Comment[] = buildCommentTree(single.answers, votedAnswerIds);
 
     return {
       id: single.id,

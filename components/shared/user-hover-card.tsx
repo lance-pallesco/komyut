@@ -74,7 +74,7 @@ export function UserHoverCard({ author, children, className }: UserHoverCardProp
   };
 
   return (
-    <div className={`relative inline-block ${className || ""}`}>
+    <div className={`relative inline-block ${isHovered ? "z-[100]" : ""} ${className || ""}`}>
       <div
         className="cursor-pointer inline-flex items-center"
         onMouseEnter={handleMouseEnter}
@@ -89,7 +89,7 @@ export function UserHoverCard({ author, children, className }: UserHoverCardProp
         <div
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className="absolute top-full left-0 mt-1.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150"
+          className="absolute top-full left-0 mt-1.5 z-[9999] animate-in fade-in-50 zoom-in-95 duration-150"
         >
           {isAnonymous ? (
             /* Anonymous Popover (Matches Facebook style) */
@@ -160,7 +160,7 @@ export function UserHoverCard({ author, children, className }: UserHoverCardProp
                 <div className="grid grid-cols-2 gap-2 pt-3 mt-3 border-t border-border/60 text-center text-xs">
                   <div className="p-1.5 rounded-xl bg-muted/40">
                     <span className="text-xs font-bold text-foreground block">
-                      {author.verifiedAnswersCount || 88}
+                      {author.verifiedAnswersCount ?? 0}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-medium">
                       Verified Guides
@@ -168,7 +168,7 @@ export function UserHoverCard({ author, children, className }: UserHoverCardProp
                   </div>
                   <div className="p-1.5 rounded-xl bg-muted/40">
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
-                      {(author.reputationPoints || 3420).toLocaleString()}
+                      {(author.reputationPoints ?? 100).toLocaleString()}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-medium">
                       Reputation Pts

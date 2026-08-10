@@ -17,10 +17,15 @@ interface NavbarProps {
 }
 
 import { useRouter } from "next/navigation";
+import { useUserProfile } from "@/components/providers/user-profile-provider";
 
 export function Navbar({ searchQuery = "", onSearchChange }: NavbarProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { profile } = useUserProfile();
+
+  const displayName = profile?.name || session?.user?.name || (session?.user as any)?.username || "Commuter";
+  const displayImage = profile?.avatarUrl || session?.user?.image;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
@@ -112,14 +117,14 @@ export function Navbar({ searchQuery = "", onSearchChange }: NavbarProps) {
             <div className="flex items-center gap-2 border-l border-border pl-2 ml-1">
               <div className="hidden md:flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-emerald-500/20 overflow-hidden border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-600">
-                  {session.user.image ? (
-                    <img src={session.user.image} alt={session.user.name || "User"} className="w-full h-full object-cover" />
+                  {displayImage ? (
+                    <img src={displayImage} alt={displayName} className="w-full h-full object-cover" />
                   ) : (
-                    <span>{(session.user.name || "C")[0]}</span>
+                    <span>{(displayName || "C")[0]}</span>
                   )}
                 </div>
                 <span className="text-xs font-bold text-foreground max-w-[100px] truncate">
-                  {session.user.name || (session.user as any).username}
+                  {displayName}
                 </span>
               </div>
               <Button

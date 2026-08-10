@@ -25,6 +25,7 @@ export const metadata: Metadata = {
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { UserProfileProvider } from "@/components/providers/user-profile-provider";
+import { GuestAuthProvider } from "@/components/providers/guest-auth-provider";
 
 export default async function RootLayout({
   children,
@@ -42,18 +43,20 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground pb-16 md:pb-0">
         <AuthProvider session={session}>
           <UserProfileProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <TooltipProvider>
-                {children}
-                <MobileBottomNav />
-                <Toaster position="bottom-right" richColors />
-              </TooltipProvider>
-            </ThemeProvider>
+            <GuestAuthProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <TooltipProvider>
+                  {children}
+                  <MobileBottomNav />
+                  <Toaster position="bottom-right" richColors />
+                </TooltipProvider>
+              </ThemeProvider>
+            </GuestAuthProvider>
           </UserProfileProvider>
         </AuthProvider>
       </body>

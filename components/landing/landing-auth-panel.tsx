@@ -89,7 +89,8 @@ export function LandingAuthPanel() {
           toast.error("Account created, but automatic login failed. Please sign in.");
           setMode("login");
         } else {
-          router.push("/feed");
+          toast.success("Welcome to KOMYUT! Redirecting to community rules...");
+          router.push("/rules?welcome=true");
         }
       } else {
         const res = await signIn("credentials", {

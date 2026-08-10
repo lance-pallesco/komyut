@@ -3,11 +3,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfileClientContainer } from "@/components/profile/profile-client-container";
 
+import { redirect } from "next/navigation";
+
 export const revalidate = 0; // Dynamic server component for fresh user session data
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
-  const sessionUserId = (session?.user as any)?.id;
+
+  if (!session?.user) {
+    redirect("/");
+  }
+
+  const sessionUserId = (session.user as any)?.id;
   const sessionUserEmail = session?.user?.email;
   const sessionUsername = (session?.user as any)?.username;
 
