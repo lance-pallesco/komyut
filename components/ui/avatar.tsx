@@ -17,7 +17,7 @@ function Avatar({
       data-slot="avatar"
       data-size={size}
       className={cn(
-        "group/avatar relative flex size-8 shrink-0 rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:border-border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 dark:after:mix-blend-lighten",
+        "group/avatar relative flex size-8 shrink-0 rounded-full overflow-hidden select-none after:absolute after:inset-0 after:rounded-full after:border after:border-border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 dark:after:mix-blend-lighten",
         className
       )}
       {...props}
@@ -25,14 +25,28 @@ function Avatar({
   )
 }
 
-function AvatarImage({ className, src, ...props }: AvatarPrimitive.Image.Props) {
-  if (!src || src === "") return null;
+function AvatarImage({
+  className,
+  src,
+  alt,
+  onError,
+  ...props
+}: React.ComponentProps<"img">) {
+  const [hasError, setHasError] = React.useState(false);
+
+  if (!src || src === "" || hasError) return null;
+
   return (
-    <AvatarPrimitive.Image
+    <img
       data-slot="avatar-image"
       src={src}
+      alt={alt || "Avatar"}
+      onError={(e) => {
+        setHasError(true);
+        if (onError) onError(e);
+      }}
       className={cn(
-        "aspect-square size-full rounded-full object-cover",
+        "aspect-square size-full rounded-full object-cover relative z-10",
         className
       )}
       {...props}

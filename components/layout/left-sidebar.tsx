@@ -40,11 +40,24 @@ export function LeftSidebar({ profileData: propProfile }: LeftSidebarProps) {
 
   // Local live profile state synced via propProfile, contextProfile, or session/DB
   const [liveProfile, setLiveProfile] = useState({
-    name: propProfile?.name || contextProfile?.name || user?.name || "Kōshi Sugawara",
-    username: propProfile?.username || contextProfile?.username || (user as any)?.username || "kshisugawara9553",
-    avatarUrl: propProfile?.avatarUrl || contextProfile?.avatarUrl || user?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-    coverUrl: propProfile?.coverUrl || contextProfile?.coverUrl || "",
+    name: propProfile?.name || contextProfile?.name || user?.name || "Commuter",
+    username: propProfile?.username || contextProfile?.username || (user as any)?.username || "commuter",
+    avatarUrl: propProfile?.avatarUrl || contextProfile?.avatarUrl || user?.image || "",
+    coverUrl: propProfile?.coverUrl || contextProfile?.coverUrl || (user as any)?.coverUrl || "",
   });
+
+  // Sync with session user when auth finishes
+  useEffect(() => {
+    if (user) {
+      setLiveProfile((prev) => ({
+        ...prev,
+        name: user.name || prev.name,
+        username: (user as any).username || prev.username,
+        avatarUrl: user.image || prev.avatarUrl,
+        coverUrl: (user as any).coverUrl !== undefined ? (user as any).coverUrl : prev.coverUrl,
+      }));
+    }
+  }, [user]);
 
   // Sync with contextProfile or propProfile changes reactively
   useEffect(() => {
@@ -54,7 +67,7 @@ export function LeftSidebar({ profileData: propProfile }: LeftSidebarProps) {
         ...prev,
         ...(active.name ? { name: active.name } : {}),
         ...(active.username ? { username: active.username } : {}),
-        ...(active.avatarUrl !== undefined ? { avatarUrl: active.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" } : {}),
+        ...(active.avatarUrl !== undefined ? { avatarUrl: active.avatarUrl || "" } : {}),
         ...(active.coverUrl !== undefined ? { coverUrl: active.coverUrl || "" } : {}),
       }));
     }
@@ -101,9 +114,8 @@ export function LeftSidebar({ profileData: propProfile }: LeftSidebarProps) {
     if (!isLoggedIn && isProtectedRoute) {
       e.preventDefault();
       openGuestAuthModal({
-        title: "Kailangan Mag-Sign In",
-        description: "Mag-sign in muna sa KOMYUT para ma-access ang pahinang ito.",
-        icon: "lock",
+        title: "Sign In Required",
+        description: "Sign in to KOMYUT to access this page.",
       });
     }
   };

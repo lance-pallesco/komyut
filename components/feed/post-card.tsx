@@ -157,9 +157,8 @@ function Level3ReplyItem({
   const toggleLike = async () => {
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Mag-like",
-        description: "Kailangan ng account para makapag-like ng sagot.",
-        icon: "heart",
+        title: "Sign In to Like",
+        description: "An account is required to like answers.",
       });
       return;
     }
@@ -309,9 +308,8 @@ function SubReplyItem({
   const toggleLike = async () => {
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Mag-like",
-        description: "Kailangan ng account para makapag-like ng sagot.",
-        icon: "heart",
+        title: "Sign In to Like",
+        description: "An account is required to like answers.",
       });
       return;
     }
@@ -535,9 +533,8 @@ function CommentItem({
   const toggleLike = async () => {
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Mag-like",
-        description: "Kailangan ng account para makapag-like ng commute guides at sagot.",
-        icon: "heart",
+        title: "Sign In to Like",
+        description: "An account is required to like commute guides and answers.",
       });
       return;
     }
@@ -556,9 +553,8 @@ function CommentItem({
   const handleReplyMother = () => {
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Mag-reply",
-        description: "Kailangan ng account para makapag-reply sa sagot.",
-        icon: "lock",
+        title: "Sign In to Reply",
+        description: "An account is required to reply to answers.",
       });
       return;
     }
@@ -575,9 +571,8 @@ function CommentItem({
   const handleReplySubChild = (childReplyId: string, childAuthorName: string) => {
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Mag-reply",
-        description: "Kailangan ng account para makapag-reply sa sagot.",
-        icon: "lock",
+        title: "Sign In to Reply",
+        description: "An account is required to reply to answers.",
       });
       return;
     }
@@ -766,9 +761,9 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated" && !!session?.user;
   const loggedInUser = session?.user;
-  const currentUserImage = loggedInUser?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
-  const currentUserName = loggedInUser?.name || (loggedInUser as any)?.username || "Lance Pallesco";
-  const currentUserInitials = currentUserName.substring(0, 2).toUpperCase();
+  const currentUserImage = loggedInUser?.image || "";
+  const currentUserName = loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
+  const currentUserInitials = (currentUserName[0] || "C").toUpperCase();
 
   const [postData, setPostData] = useState<Post>(post);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -845,9 +840,8 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
   const handlePostLike = () => {
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Mag-like",
-        description: "Kailangan ng account para makapag-like ng commute guides at tanong.",
-        icon: "heart",
+        title: "Sign In to Like",
+        description: "An account is required to like commute guides and questions.",
       });
       return;
     }
@@ -857,9 +851,8 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
   const handleBookmarkToggle = () => {
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Mag-save",
-        description: "Kailangan ng account para ma-save ang commute routes sa iyong profile.",
-        icon: "bookmark",
+        title: "Sign In to Save",
+        description: "An account is required to save commute routes to your profile.",
       });
       return;
     }
@@ -908,9 +901,8 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
     e.preventDefault();
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Sumagot",
-        description: "Kailangan ng account para makapagbahagi ng commute guide at sagot.",
-        icon: "plus",
+        title: "Sign In to Answer",
+        description: "An account is required to share commute guides and answers.",
       });
       return;
     }

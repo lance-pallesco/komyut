@@ -102,9 +102,11 @@ export const authOptions: NextAuthOptions = {
         });
         if (dbUser) {
           token.id = dbUser.id;
+          token.name = dbUser.name;
           token.username = dbUser.username;
           token.role = dbUser.role;
           token.picture = dbUser.avatarUrl || token.picture;
+          (token as any).coverUrl = dbUser.coverUrl || "";
           // Account created within the last 45 seconds = New User
           token.isNewUser = Date.now() - new Date(dbUser.createdAt).getTime() < 45000;
         }
@@ -115,9 +117,13 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id;
+        if (token.name) {
+          session.user.name = token.name as string;
+        }
         (session.user as any).username = token.username;
         (session.user as any).role = token.role;
         (session.user as any).isNewUser = token.isNewUser || false;
+        (session.user as any).coverUrl = (token as any).coverUrl || "";
         session.user.image = token.picture || session.user.image;
       }
       return session;

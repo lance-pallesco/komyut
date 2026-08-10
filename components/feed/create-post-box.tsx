@@ -21,9 +21,8 @@ export function CreatePostBox() {
   const handleOpenClick = () => {
     if (status !== "authenticated") {
       openGuestAuthModal({
-        title: "Mag-sign In Para Magtanong",
-        description: "Kailangan ng account para makapag-post ng tanong sa komunidad.",
-        icon: "plus",
+        title: "Sign In to Ask a Question",
+        description: "An account is required to post a question to the community.",
       });
       return;
     }
