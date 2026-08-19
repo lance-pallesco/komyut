@@ -208,3 +208,20 @@ Return ONLY a JSON array of objects with "name" and "type". Example: [{"name": "
     tagNames: Array.from(new Set(resolvedTagNames)),
   };
 }
+
+/**
+ * Log user feedback on whether an AI-retrieved suggestion was helpful (👍 / 👎).
+ */
+export async function rateAISuggestionAction(suggestionId: string, wasHelpful: boolean) {
+  try {
+    const updated = await prisma.aISuggestion.update({
+      where: { id: suggestionId },
+      data: { wasHelpful },
+    });
+    return { success: true, suggestion: updated };
+  } catch (error: any) {
+    console.error("Error rating AI suggestion:", error);
+    return { success: false, error: error?.message || "Failed to record feedback" };
+  }
+}
+

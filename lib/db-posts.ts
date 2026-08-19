@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { MOCK_POSTS } from "@/lib/mock-data";
 import { resolveTagByKeyword } from "@/lib/tag-service";
-import type { Post, Comment } from "@/types";
+import type { Post, Comment, AISuggestion } from "@/types";
 
 export interface GetFeedPostsOptions {
   userId?: string;
@@ -96,6 +96,58 @@ function buildCommentTree(allAnswers: any[], votedAnswerIds: Set<string>): Comme
   });
 }
 
+function formatAiSuggestions(rawSuggestions: any[]): AISuggestion[] {
+  if (!rawSuggestions || rawSuggestions.length === 0) return [];
+
+  return rawSuggestions.map((s) => {
+    const ans = s.answer;
+    const ansAuthor = ans?.author
+      ? {
+          id: ans.author.id,
+          name: ans.author.name || ans.author.username,
+          username: ans.author.username,
+          avatarUrl: ans.author.avatarUrl || undefined,
+          coverUrl: ans.author.coverUrl || undefined,
+          reputationPoints: ans.author.reputationPoints || 100,
+          verifiedAnswersCount: ans.author.verifiedAnswersCount || 0,
+        }
+      : {
+          id: "unknown",
+          name: "Commuter",
+          username: "commuter",
+          reputationPoints: 0,
+          verifiedAnswersCount: 0,
+        };
+
+    return {
+      id: s.id,
+      postId: s.postId,
+      answerId: s.answerId,
+      confidenceScore: s.confidenceScore,
+      confidenceTier: s.confidenceTier,
+      similarityScore: s.similarityScore,
+      similarityThresholdUsed: s.similarityThresholdUsed || undefined,
+      minConfidenceUsed: s.minConfidenceUsed || undefined,
+      isCrossMode: s.isCrossMode,
+      wasHelpful: s.wasHelpful,
+      createdAt: s.createdAt.toISOString(),
+      sourcePostTitle: ans?.post?.title || undefined,
+      sourcePostId: ans?.post?.id || undefined,
+      answer: ans
+        ? {
+            id: ans.id,
+            postId: ans.postId,
+            author: ansAuthor,
+            body: ans.body,
+            createdAt: ans.createdAt.toISOString(),
+            upvoteCount: ans.upvoteCount,
+            isVerified: ans.isVerified,
+          }
+        : undefined,
+    };
+  });
+}
+
 export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): Promise<Post[]> {
   const opts: GetFeedPostsOptions =
     typeof options === "string" ? { userId: options } : options;
@@ -116,52 +168,54 @@ export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): 
     const votedAnswerIds = new Set(
       userVotes.filter((v) => v.answerId).map((v) => v.answerId!)
     );
-    const bookmarkedPostIds = new Set(
-      userBookmarks.map((b) => b.postId)
-    );
+    const bookmarkedPostIds = new Set(userBookmarks.map((b) => b.postId));
 
-    // Build Prisma `where` clause dynamically
     const whereClause: any = {};
 
-    // 1. Region Filter
     if (region && region !== "All Regions") {
-      whereClause.region = { equals: region, mode: "insensitive" };
+      whereClause.region = region;
     }
 
-    // 2. Tag Filter (Canonical & Aliases)
     if (tagFilter && tagFilter.trim()) {
       const cleanTag = tagFilter.trim();
       const canonicalTag = await resolveTagByKeyword(cleanTag);
-      const targetTagName = canonicalTag ? canonicalTag.name : cleanTag;
 
-      whereClause.tags = {
-        some: {
-          tag: {
-            OR: [
-              { name: { equals: targetTagName, mode: "insensitive" } },
-              { slug: { equals: cleanTag.toLowerCase() } },
-              { aliases: { has: cleanTag } },
-            ],
+      if (canonicalTag) {
+        whereClause.tags = {
+          some: {
+            tag: {
+              id: canonicalTag.id,
+            },
           },
-        },
-      };
+        };
+      } else {
+        whereClause.tags = {
+          some: {
+            tag: {
+              OR: [
+                { name: { equals: cleanTag, mode: "insensitive" } },
+                { slug: { equals: cleanTag.toLowerCase() } },
+                { aliases: { has: cleanTag } },
+              ],
+            },
+          },
+        };
+      }
     }
 
-    // 3. Keyword Search across Title, Body, Origin, Destination & Answers.body
     if (query && query.trim()) {
-      const q = query.trim();
-      const canonicalTag = await resolveTagByKeyword(q);
+      const cleanQuery = query.trim();
+      const canonicalTag = await resolveTagByKeyword(cleanQuery);
 
-      const searchConditions: any[] = [
-        { title: { contains: q, mode: "insensitive" } },
-        { body: { contains: q, mode: "insensitive" } },
-        { origin: { contains: q, mode: "insensitive" } },
-        { destination: { contains: q, mode: "insensitive" } },
-        { answers: { some: { body: { contains: q, mode: "insensitive" } } } },
+      const queryOrConditions: any[] = [
+        { title: { contains: cleanQuery, mode: "insensitive" } },
+        { body: { contains: cleanQuery, mode: "insensitive" } },
+        { origin: { contains: cleanQuery, mode: "insensitive" } },
+        { destination: { contains: cleanQuery, mode: "insensitive" } },
       ];
 
       if (canonicalTag) {
-        searchConditions.push({
+        queryOrConditions.push({
           tags: {
             some: {
               tagId: canonicalTag.id,
@@ -170,11 +224,10 @@ export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): 
         });
       }
 
-      whereClause.OR = searchConditions;
+      whereClause.OR = queryOrConditions;
     }
 
-    // 4. Sorting Options
-    let orderByClause: any = { createdAt: "desc" };
+    let orderByClause: any = [{ createdAt: "desc" }];
     if (sort === "most_voted") {
       orderByClause = [{ upvoteCount: "desc" }, { createdAt: "desc" }];
     } else if (sort === "relevant" && query) {
@@ -198,6 +251,17 @@ export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): 
             author: true,
           },
         },
+        aiSuggestions: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            answer: {
+              include: {
+                author: true,
+                post: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -217,6 +281,7 @@ export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): 
         .map((t) => t.tag.name);
 
       const comments: Comment[] = buildCommentTree(p.answers, votedAnswerIds);
+      const aiSuggestions: AISuggestion[] = formatAiSuggestions(p.aiSuggestions || []);
 
       const authorObj = p.isAnonymous
         ? {
@@ -256,9 +321,11 @@ export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): 
         isBookmarked: bookmarkedPostIds.has(p.id),
         isCommentingDisabled: p.isCommentingDisabled || false,
         isAnonymous: p.isAnonymous || false,
+        processingStatus: p.processingStatus as any,
         status: p.status as any,
         createdAt: p.createdAt.toISOString(),
         comments,
+        aiSuggestions,
       };
     });
 
@@ -268,10 +335,9 @@ export async function getFeedPosts(options: GetFeedPostsOptions | string = {}): 
         const [targetPost] = formattedPosts.splice(targetIndex, 1);
         formattedPosts.unshift(targetPost);
       } else if (targetIndex === -1) {
-        // If not found in default feed query, fetch it directly and prepended to top
-        const targetPost = await getPostById(postId, userId);
-        if (targetPost) {
-          formattedPosts.unshift(targetPost);
+        const singlePost = await getPostById(postId, userId);
+        if (singlePost) {
+          formattedPosts.unshift(singlePost);
         }
       }
     }
@@ -308,6 +374,17 @@ export async function getSavedPosts(userId: string): Promise<Post[]> {
                 author: true,
               },
             },
+            aiSuggestions: {
+              orderBy: { createdAt: "desc" },
+              include: {
+                answer: {
+                  include: {
+                    author: true,
+                    post: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -327,6 +404,7 @@ export async function getSavedPosts(userId: string): Promise<Post[]> {
         .map((t) => t.tag.name);
 
       const comments: Comment[] = buildCommentTree(p.answers, votedAnswerIds);
+      const aiSuggestions: AISuggestion[] = formatAiSuggestions(p.aiSuggestions || []);
 
       const authorObj = p.isAnonymous
         ? {
@@ -364,9 +442,11 @@ export async function getSavedPosts(userId: string): Promise<Post[]> {
         isBookmarked: true,
         isCommentingDisabled: p.isCommentingDisabled || false,
         isAnonymous: p.isAnonymous || false,
+        processingStatus: p.processingStatus as any,
         status: p.status as any,
         createdAt: p.createdAt.toISOString(),
         comments,
+        aiSuggestions,
       };
     });
 
@@ -403,6 +483,17 @@ export async function getUserQuestions(userId: string): Promise<Post[]> {
             author: true,
           },
         },
+        aiSuggestions: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            answer: {
+              include: {
+                author: true,
+                post: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -419,6 +510,7 @@ export async function getUserQuestions(userId: string): Promise<Post[]> {
         .map((t) => t.tag.name);
 
       const comments: Comment[] = buildCommentTree(p.answers, votedAnswerIds);
+      const aiSuggestions: AISuggestion[] = formatAiSuggestions(p.aiSuggestions || []);
 
       const authorObj = p.isAnonymous
         ? {
@@ -456,9 +548,11 @@ export async function getUserQuestions(userId: string): Promise<Post[]> {
         isBookmarked: bookmarkedPostIds.has(p.id),
         isCommentingDisabled: p.isCommentingDisabled || false,
         isAnonymous: p.isAnonymous || false,
+        processingStatus: p.processingStatus as any,
         status: p.status as any,
         createdAt: p.createdAt.toISOString(),
         comments,
+        aiSuggestions,
       };
     });
 
@@ -484,6 +578,17 @@ export async function getPostById(postId: string, userId?: string): Promise<Post
             author: true,
           },
         },
+        aiSuggestions: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            answer: {
+              include: {
+                author: true,
+                post: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -503,6 +608,7 @@ export async function getPostById(postId: string, userId?: string): Promise<Post
       .map((t) => t.tag.name);
 
     const comments: Comment[] = buildCommentTree(single.answers, votedAnswerIds);
+    const aiSuggestions: AISuggestion[] = formatAiSuggestions(single.aiSuggestions || []);
 
     return {
       id: single.id,
@@ -540,9 +646,11 @@ export async function getPostById(postId: string, userId?: string): Promise<Post
       isBookmarked: bookmarkedPostIds.has(single.id),
       isCommentingDisabled: single.isCommentingDisabled || false,
       isAnonymous: single.isAnonymous || false,
+      processingStatus: single.processingStatus as any,
       status: single.status as any,
       createdAt: single.createdAt.toISOString(),
       comments,
+      aiSuggestions,
     };
   } catch (err) {
     console.error("Error in getPostById:", err);

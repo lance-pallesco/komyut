@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, TagType } from "@prisma/client";
+import { PrismaClient, TagType, ConfidenceTier, ProcessingStatus } from "@prisma/client";
 
 function getPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -99,7 +99,7 @@ async function main() {
 
   console.log("✅ Seeded demo users.");
 
-  // 3. Seed Demo Posts
+  // 3. Seed Demo Post 1 (SM North -> BGC)
   const post1 = await prisma.post.create({
     data: {
       authorId: user1.id,
@@ -111,42 +111,77 @@ async function main() {
       status: "verified",
       upvoteCount: 24,
       answerCount: 2,
+      processingStatus: ProcessingStatus.EMBEDDED,
     },
   });
 
-  // Attach Tags to Post
+  // Attach Tags to Post 1
   const busTag = await prisma.tag.findUnique({ where: { name: "Bus" } });
-  const mrtTag = await prisma.tag.findUnique({ where: { name: "MRT" } });
+  const mrtTag = await prisma.tag.findUnique({ where: { name: "MRT-3" } });
+  const qcTag = await prisma.tag.findUnique({ where: { name: "Quezon City" } });
+  const bgcTag = await prisma.tag.findUnique({ where: { name: "BGC" } });
 
-  if (busTag) {
-    await prisma.postTag.create({
-      data: { postId: post1.id, tagId: busTag.id },
-    });
-  }
-  if (mrtTag) {
-    await prisma.postTag.create({
-      data: { postId: post1.id, tagId: mrtTag.id },
-    });
+  const tagsToAdd = [busTag, mrtTag, qcTag, bgcTag].filter(Boolean);
+  for (const t of tagsToAdd) {
+    if (t) {
+      await prisma.postTag.create({
+        data: { postId: post1.id, tagId: t.id },
+      });
+    }
   }
 
-  // 4. Seed Verified Answer
-  await prisma.answer.create({
+  // 4. Seed Verified Answer for Post 1
+  const answer1 = await prisma.answer.create({
     data: {
       postId: post1.id,
       authorId: user2.id,
       body: "Mula SM North, sakay ka ng MRT-3 North Ave station tapos baba ka sa Ayala station. Mula Ayala station footbridge, tumawid ka papuntang BGC Bus Terminal (Telus building). Sakay ng West Route o East Route BGC Bus, baba ka sa Bonifacio High Street.",
       isVerified: true,
       upvoteCount: 16,
+      processingStatus: ProcessingStatus.EMBEDDED,
+      lastConfirmedAt: new Date(),
     },
   });
 
-  console.log("✅ Seeded demo posts & verified answers.");
-  console.log("🎉 Database seeding completed successfully!");
+  // 5. Seed Post 2 with AISuggestion attached (Simulates AI finding answer1)
+  const post2 = await prisma.post.create({
+    data: {
+      authorId: user1.id,
+      title: "How to get to BGC Bonifacio High Street from SM North EDSA QC?",
+      body: "Ano po best and fastest route going to BGC from SM North? Need directions for morning commute.",
+      origin: "SM North EDSA",
+      destination: "BGC",
+      region: "Metro Manila",
+      status: "answered",
+      upvoteCount: 8,
+      answerCount: 1,
+      processingStatus: ProcessingStatus.EMBEDDED,
+    },
+  });
+
+  if (qcTag && bgcTag) {
+    await prisma.postTag.create({ data: { postId: post2.id, tagId: qcTag.id } });
+    await prisma.postTag.create({ data: { postId: post2.id, tagId: bgcTag.id } });
+  }
+
+  // Create AISuggestion connecting post2 to answer1
+  await prisma.aISuggestion.create({
+    data: {
+      postId: post2.id,
+      answerId: answer1.id,
+      confidenceScore: 0.85,
+      confidenceTier: ConfidenceTier.VERIFIED,
+      similarityScore: 0.92,
+      isCrossMode: false,
+    },
+  });
+
+  console.log("✅ Seeded demo post with AI Suggestion successfully.");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Error seeding database:", e);
+    console.error("❌ Seeding failed:", e);
     process.exit(1);
   })
   .finally(async () => {
