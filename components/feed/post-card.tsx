@@ -47,6 +47,8 @@ import { ConfirmModal } from "@/components/shared/confirm-modal";
 import { LikeButton } from "@/components/shared/like-button";
 import { AdaptiveCommentInput } from "@/components/post/adaptive-comment-input";
 import { PostFormModal } from "@/components/post/post-form-modal";
+import { useUserProfile } from "@/components/providers/user-profile-provider";
+import { AISuggestionCard } from "@/components/post/ai-suggestion-card";
 
 interface PostCardProps {
   post: Post;
@@ -138,8 +140,20 @@ function Level3ReplyItem({
   onInitiateReply,
 }: Level3ReplyItemProps) {
   const { data: session, status } = useSession();
+  const { profile: contextProfile } = useUserProfile();
   const { openGuestAuthModal } = useGuestAuthModal();
   const loggedInUser = session?.user;
+
+  const isSelf =
+    (loggedInUser?.id && subReply.author.id === loggedInUser.id) ||
+    (loggedInUser?.name && subReply.author.name === loggedInUser.name) ||
+    (contextProfile?.id && subReply.author.id === contextProfile.id) ||
+    (contextProfile?.name && subReply.author.name === contextProfile.name) ||
+    subReply.author.id === "usr-current";
+
+  const subReplyAvatar = isSelf
+    ? (contextProfile?.avatarUrl || loggedInUser?.image || subReply.author.avatarUrl)
+    : subReply.author.avatarUrl;
 
   const [liked, setLiked] = useState(subReply.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(subReply.upvoteCount);
@@ -179,9 +193,9 @@ function Level3ReplyItem({
       {/* Level 3 Branch Elbow */}
       <div className="absolute left-0 top-3.5 w-3 sm:w-4 h-3 border-l-2 border-b-2 border-border/60 rounded-bl-lg -translate-x-1/2" />
 
-      <UserHoverCard author={subReply.author}>
+      <UserHoverCard author={{ ...subReply.author, avatarUrl: subReplyAvatar }}>
         <Avatar className="h-6 w-6 sm:h-7 sm:w-7 border border-border/50 shrink-0 mt-0.5 z-10 ring-2 ring-background">
-          <AvatarImage src={subReply.author.avatarUrl} alt={subReply.author.name} />
+          <AvatarImage src={subReplyAvatar} alt={subReply.author.name} />
           <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-bold">
             {(subReply.author.name || "C").substring(0, 2).toUpperCase()}
           </AvatarFallback>
@@ -280,10 +294,11 @@ function SubReplyItem({
   onReplySubmit,
 }: SubReplyItemProps) {
   const { data: session, status } = useSession();
+  const { profile: contextProfile } = useUserProfile();
   const { openGuestAuthModal } = useGuestAuthModal();
   const loggedInUser = session?.user;
-  const userImage = loggedInUser?.image || "/logo.png";
-  const userName = loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
+  const userName = contextProfile?.name || loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
+  const userImage = contextProfile?.avatarUrl || loggedInUser?.image || "/logo.png";
   const userInitials = (userName[0] || "C").toUpperCase();
 
   const [liked, setLiked] = useState(reply.isLiked ?? false);
@@ -297,11 +312,20 @@ function SubReplyItem({
 
   const isReplyOwner =
     (loggedInUser?.id && reply.author.id === loggedInUser.id) ||
-    (loggedInUser?.name && reply.author.name === loggedInUser.name);
+    (loggedInUser?.name && reply.author.name === loggedInUser.name) ||
+    (contextProfile?.id && reply.author.id === contextProfile.id) ||
+    (contextProfile?.name && reply.author.name === contextProfile.name) ||
+    reply.author.id === "usr-current";
+
+  const replyAvatar = isReplyOwner
+    ? (contextProfile?.avatarUrl || loggedInUser?.image || reply.author.avatarUrl)
+    : reply.author.avatarUrl;
 
   const isPostOwner =
     (loggedInUser?.id && postAuthorId && postAuthorId === loggedInUser.id) ||
-    (loggedInUser?.name && postAuthorName && postAuthorName === loggedInUser.name);
+    (loggedInUser?.name && postAuthorName && postAuthorName === loggedInUser.name) ||
+    (contextProfile?.id && postAuthorId && postAuthorId === contextProfile.id) ||
+    (contextProfile?.name && postAuthorName && postAuthorName === contextProfile.name);
 
   const canDelete = isReplyOwner || isPostOwner;
 
@@ -340,9 +364,9 @@ function SubReplyItem({
         {/* Curved Branch Line (L-shaped elbow) */}
         <div className="absolute left-0 top-3.5 w-3 sm:w-4 h-3 border-l-2 border-b-2 border-border/70 rounded-bl-lg -translate-x-1/2" />
 
-        <UserHoverCard author={reply.author}>
+        <UserHoverCard author={{ ...reply.author, avatarUrl: replyAvatar }}>
           <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border/50 shrink-0 mt-0.5 z-10 ring-2 ring-background">
-            <AvatarImage src={reply.author.avatarUrl} alt={reply.author.name} />
+            <AvatarImage src={replyAvatar} alt={reply.author.name} />
             <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-bold">
               {(reply.author.name || "C").substring(0, 2).toUpperCase()}
             </AvatarFallback>
@@ -502,10 +526,11 @@ function CommentItem({
   onReplySubmit,
 }: CommentItemProps) {
   const { data: session, status } = useSession();
+  const { profile: contextProfile } = useUserProfile();
   const { openGuestAuthModal } = useGuestAuthModal();
   const loggedInUser = session?.user;
-  const userImage = loggedInUser?.image || "/logo.png";
-  const userName = loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
+  const userName = contextProfile?.name || loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
+  const userImage = contextProfile?.avatarUrl || loggedInUser?.image || "/logo.png";
   const userInitials = (userName[0] || "C").toUpperCase();
 
   const [liked, setLiked] = useState(comment.isLiked ?? false);
@@ -520,12 +545,20 @@ function CommentItem({
   const isCommentOwner =
     (loggedInUser?.id && comment.author.id === loggedInUser.id) ||
     (loggedInUser?.name && comment.author.name === loggedInUser.name) ||
+    (contextProfile?.id && comment.author.id === contextProfile.id) ||
+    (contextProfile?.name && comment.author.name === contextProfile.name) ||
     comment.author.id === "usr-current" ||
     comment.author.name === userName;
+
+  const commentAvatar = isCommentOwner
+    ? (contextProfile?.avatarUrl || loggedInUser?.image || comment.author.avatarUrl)
+    : comment.author.avatarUrl;
 
   const isPostOwner =
     (loggedInUser?.id && postAuthorId && postAuthorId === loggedInUser.id) ||
     (loggedInUser?.name && postAuthorName && postAuthorName === loggedInUser.name) ||
+    (contextProfile?.id && postAuthorId && postAuthorId === contextProfile.id) ||
+    (contextProfile?.name && postAuthorName && postAuthorName === contextProfile.name) ||
     (postAuthorName && postAuthorName === userName);
 
   const canDelete = isCommentOwner || isPostOwner;
@@ -592,10 +625,10 @@ function CommentItem({
     <div className="space-y-3 relative hover:z-30">
       {/* Mother Comment Header & Bubble */}
       <div className="flex items-start gap-2.5 sm:gap-3 relative">
-        <UserHoverCard author={comment.author}>
+        <UserHoverCard author={{ ...comment.author, avatarUrl: commentAvatar }}>
           <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border/50 shrink-0 mt-0.5 ring-2 ring-background">
             <AvatarImage
-              src={comment.author.avatarUrl}
+              src={commentAvatar}
               alt={comment.author.name}
             />
             <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
@@ -759,10 +792,11 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
   const { data: session, status } = useSession();
+  const { profile: contextProfile } = useUserProfile();
   const isAuthenticated = status === "authenticated" && !!session?.user;
   const loggedInUser = session?.user;
-  const currentUserImage = loggedInUser?.image || "";
-  const currentUserName = loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
+  const currentUserImage = contextProfile?.avatarUrl || loggedInUser?.image || "";
+  const currentUserName = contextProfile?.name || loggedInUser?.name || (loggedInUser as any)?.username || "Commuter";
   const currentUserInitials = (currentUserName[0] || "C").toUpperCase();
 
   const [postData, setPostData] = useState<Post>(post);
@@ -1257,6 +1291,13 @@ export function PostCard({ post, isHighlighted = false, onVote, onBookmark }: Po
               </button>
             </div>
           </div>
+
+          {/* AI Note / Community-Verified Route Card */}
+          {post.aiSuggestions && post.aiSuggestions.length > 0 && (
+            <div className="pt-2">
+              <AISuggestionCard suggestion={post.aiSuggestions[0]} />
+            </div>
+          )}
 
           {!isAuthenticated ? (
             <div className="pt-2">

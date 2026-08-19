@@ -1,11 +1,13 @@
 // Prisma schema for KOMYUT MVP
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [pgvector(map: "vector")]
 }
 
 model User {
@@ -24,10 +26,10 @@ model User {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  posts         Post[]
-  answers       Answer[]
-  votes         Vote[]
-  bookmarks     Bookmark[]
+  posts             Post[]
+  answers           Answer[]
+  votes             Vote[]
+  bookmarks         Bookmark[]
   notifications     Notification[] @relation("UserNotifications")
   sentNotifications Notification[] @relation("ActorNotifications")
   reports           Report[]
@@ -35,22 +37,35 @@ model User {
   @@map("users")
 }
 
+enum ProcessingStatus {
+  PENDING
+  EMBEDDED
+  FAILED
+}
+
+enum ConfidenceTier {
+  VERIFIED
+  LIKELY
+  UNCONFIRMED
+}
+
 model Post {
-  id             String   @id @default(uuid())
-  authorId       String
-  author         User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  title          String
-  body           String
-  origin         String
-  destination    String
-  region         String   @default("Metro Manila")
-  status         String   @default("unanswered") // "unanswered", "answered", "verified", "pinned"
-  upvoteCount          Int      @default(0)
-  answerCount          Int      @default(0)
-  isCommentingDisabled Boolean  @default(false)
-  isAnonymous          Boolean  @default(false)
-  createdAt            DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String           @id @default(uuid())
+  authorId             String
+  author               User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title                String
+  body                 String
+  origin               String
+  destination          String
+  region               String           @default("Metro Manila")
+  status               String           @default("unanswered") // "unanswered", "answered", "verified", "pinned"
+  upvoteCount          Int              @default(0)
+  answerCount          Int              @default(0)
+  isCommentingDisabled Boolean          @default(false)
+  isAnonymous          Boolean          @default(false)
+  processingStatus     ProcessingStatus @default(PENDING)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   answers       Answer[]
   votes         Vote[]
@@ -64,22 +79,30 @@ model Post {
 }
 
 model Answer {
-  id          String   @id @default(uuid())
-  postId      String
-  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parentId    String?
-  parent      Answer?  @relation("AnswerReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     Answer[] @relation("AnswerReplies")
-  body        String
-  isVerified  Boolean  @default(false)
-  upvoteCount Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                       String           @id @default(uuid())
+  postId                   String
+  post                     Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId                 String
+  author                   User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId                 String?
+  parent                   Answer?          @relation("AnswerReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies                  Answer[]         @relation("AnswerReplies")
+  body                     String
+  isVerified               Boolean          @default(false)
+  upvoteCount              Int              @default(0)
+  processingStatus         ProcessingStatus @default(PENDING)
+  lastConfirmedAt          DateTime         @default(now())
+  isSpam                   Boolean          @default(false)
+  isOfftopic               Boolean          @default(false)
+  isLowEffort              Boolean          @default(false)
+  classificationConfidence Float?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
 
-  votes   Vote[]
-  reports Report[]
+  votes         Vote[]
+  reports       Report[]
+  embedding     Embedding?
+  aiSuggestions AISuggestion[]
 
   @@map("answers")
 }
@@ -161,13 +184,19 @@ model Notification {
 }
 
 model AISuggestion {
-  id              String   @id @default(uuid())
-  postId          String
-  post            Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  suggestedRoute  String
-  sourceAnswerIds String[]
-  confidenceScore Float    @default(0.0)
-  createdAt       DateTime @default(now())
+  id                      String         @id @default(uuid())
+  postId                  String
+  post                    Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  answerId                String
+  answer                  Answer         @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  confidenceScore         Float          @default(0.0)
+  confidenceTier          ConfidenceTier
+  similarityScore         Float
+  similarityThresholdUsed Float?
+  minConfidenceUsed       Float?
+  isCrossMode             Boolean        @default(false)
+  wasHelpful              Boolean?
+  createdAt               DateTime       @default(now())
 
   @@map("ai_suggestions")
 }
@@ -188,13 +217,15 @@ model Report {
 }
 
 model Embedding {
-  id         String   @id @default(uuid())
-  postId     String   @unique
-  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  vectorData String   // JSON string representation of embedding vectors
-  model      String   @default("text-embedding-3-small")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(uuid())
+  postId    String?  @unique
+  answerId  String?  @unique
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  answer    Answer?  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  embedding Unsupported("vector(1536)")
+  model     String   @default("text-embedding-3-small")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("embeddings")
 }

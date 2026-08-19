@@ -23,6 +23,10 @@ export type FeedTab = "latest" | "trending" | "unanswered";
 
 export type TagType = "AREA" | "TRANSPORT" | "CUSTOM";
 
+export type ProcessingStatus = "PENDING" | "EMBEDDED" | "FAILED";
+
+export type ConfidenceTier = "VERIFIED" | "LIKELY" | "UNCONFIRMED";
+
 export interface Tag {
   id: string;
   name: string;
@@ -59,6 +63,23 @@ export interface Comment {
   replies?: Comment[];
 }
 
+export interface AISuggestion {
+  id: string;
+  postId: string;
+  answerId: string;
+  answer?: Comment;
+  confidenceScore: number;
+  confidenceTier: ConfidenceTier;
+  similarityScore: number;
+  similarityThresholdUsed?: number;
+  minConfidenceUsed?: number;
+  isCrossMode: boolean;
+  wasHelpful?: boolean | null;
+  createdAt: string;
+  sourcePostTitle?: string;
+  sourcePostId?: string;
+}
+
 export interface Post {
   id: string;
   author: User;
@@ -76,9 +97,11 @@ export interface Post {
   isBookmarked?: boolean;
   isCommentingDisabled?: boolean;
   isAnonymous?: boolean;
+  processingStatus?: ProcessingStatus;
   status: PostStatus;
   createdAt: string;
   comments?: Comment[];
+  aiSuggestions?: AISuggestion[];
 }
 
 export interface TrendingRoute {
@@ -118,17 +141,16 @@ export interface AppNotification {
   type: NotificationType;
   title: string;
   body: string;
-  referenceId: string;
-  isRead: boolean;
-  createdAt: string;
+  actorId?: string | null;
   actor?: {
+    id?: string;
     name: string;
     avatarUrl?: string;
-  };
-}
-
-export interface FilterState {
-  tab: FeedTab;
-  region: Region;
-  searchQuery: string;
+    username?: string;
+  } | null;
+  referenceType?: "POST" | "ANSWER";
+  referenceId?: string;
+  link?: string;
+  isRead: boolean;
+  createdAt: string;
 }
