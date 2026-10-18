@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateAutoTagsAction } from "./ai-actions";
 import { getPostById } from "@/lib/db-posts";
+import { runAIPipelineForPost } from "@/lib/ai-pipeline";
 
 export async function getPostByIdAction(postId: string) {
   try {
@@ -92,6 +93,11 @@ export async function createPostAction(input: CreatePostInput) {
         });
       }
     }
+
+    // Trigger AI embedding and suggestion retrieval in background
+    runAIPipelineForPost(post.id).catch((err) => {
+      console.warn("AI pipeline execution notice:", err);
+    });
 
     revalidatePath("/feed");
     revalidatePath("/");
